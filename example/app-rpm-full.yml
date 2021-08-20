@@ -1,0 +1,47 @@
+meta:
+  name: art
+  version: 0.0.1
+  release: rhel8
+  arch: x86_64
+  maintainer: Author <author@outlook.com>
+  summary: |-
+    Demo RPM package
+  description: |-
+    Demo package which can be deployed on RPM based Linux OS
+directory:
+  - destination: /etc/app
+    mode: 0755
+    owner: root
+    group: root
+  - destination: /var/log/app
+    mode: 0755
+    owner: app
+    group: app
+  - destination: /usr/share/doc/app
+    mode: 0755
+    owner: app
+    group: app
+files:
+  generic:
+    - destination: /bin
+      source: app
+      owner: root
+      group: root
+  config:
+    - destination: /etc/app
+      source: app.conf
+      owner: root
+      group: root
+    - destination: /etc/app/default.conf
+      body: |-
+        DEMO=Hello
+      owner: root
+      group: root
+      mode: 0644
+  doc:
+    - destination: /usr/share/doc/app
+      source: app.info
+      owner: root
+      group: root
+dependencies:
+  - kernel>=4.18.0-305.3.1

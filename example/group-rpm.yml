@@ -1,0 +1,20 @@
+meta:
+  name: app-group
+  version: 0.0.1
+  release: rhel8
+  arch: x86_64
+  maintainer: Author <author@outlook.com>
+  summary: |-
+    Demo RPM package
+  description: |-
+    Demo package which can be deployed on RPM based Linux OS
+files:
+  generic:
+    - destination: /bin
+      source: app1
+      owner: root
+      group: root
+    - destination: /bin
+      source: app2
+      owner: root
+      group: root

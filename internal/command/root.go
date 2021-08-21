@@ -1,6 +1,9 @@
 package command
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/egevorkyan/flufik/core"
+	"github.com/spf13/cobra"
+)
 
 type RootFlufikCommand struct {
 	Command *cobra.Command
@@ -9,8 +12,8 @@ type RootFlufikCommand struct {
 func NewFlufikRootCommand() *RootFlufikCommand {
 	c := &RootFlufikCommand{
 		Command: &cobra.Command{
-			Use:   "packager",
-			Short: "Packager: CLI tool for building awesome rpm and deb packages",
+			Use:   "flufik",
+			Short: "Flufik: CLI tool for building awesome rpm and deb packages",
 			Long: `
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 |                                                        |
@@ -44,10 +47,10 @@ func NewFlufikRootCommand() *RootFlufikCommand {
 |            \\_____//               \\_____//           |
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 `,
-			Version: "0.1",
+			Version: core.Version,
 		},
 	}
-	c.Command.SetVersionTemplate("Packager version {{.Version}}\n")
+	c.Command.SetVersionTemplate("flufik packager version {{.Version}}\n")
 	cobra.OnInitialize(c.initConfig)
 	return c
 }

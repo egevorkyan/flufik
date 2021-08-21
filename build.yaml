@@ -1,0 +1,37 @@
+---
+
+env:
+  CGO_ENABLED: 0
+  GOARCH: amd64
+
+functions:
+  - name: building
+    description: Build with archieve
+    run:
+      - $(build-linux)
+      - $(build-mac)
+      - $(zip)
+      - $(tar)
+      - rm -rf flufik-bins
+  - name: build-linux
+    description: build stats tool for Linux
+    env:
+      GOOS: linux
+    run:
+      - go build -o flufik-bins/linux/flufik cmd/main/main.go
+  - name: build-mac
+    description: build flufik tool for MacOS
+    env:
+      GOOS: darwin
+    run:
+      - go build -o flufik-bins/darwin/flufik cmd/main/main.go
+
+  - name: zip
+    description: archiving flufik binaries
+    run:
+      - zip -r flufik.zip flufik-bins
+
+  - name: tar
+    description: archiving flufik binaries
+    run:
+      - tar czvf flufik.tar.gz flufik-bins

@@ -17,7 +17,17 @@ type FlufikPackage struct {
 	PreUninstall  []string                       `yaml:"preuninstall"`
 	PostUninstall []string                       `yaml:"postuninstall"`
 	Dependencies  []FlufikDependency             `yaml:"dependencies"`
+	Signature     DebSignature                   `yaml:"signature"`
 	sourceHome    string
+}
+
+type DebSignature struct {
+	PackageSignature `yaml:",inline"`
+	Type             string `yaml:"type,omitempty" default=origin`
+}
+
+type PackageSignature struct {
+	PrivateKey string `yaml:"private_key,omitempty"`
 }
 
 func (flufikPkg *FlufikPackage) AppendPreIn(script string) {
@@ -50,6 +60,16 @@ func (flufikPkg *FlufikPackage) PreUnScript() string {
 
 func (flufikPkg *FlufikPackage) PostUnScript() string {
 	return strings.Join(flufikPkg.PreUninstall, "\n")
+}
+
+//Signature
+
+func (flufikPkg *FlufikPackage) AddSignatureKey() string {
+	return flufikPkg.Signature.PrivateKey
+}
+
+func (flufikPkg *FlufikPackage) AddSignatureType() string {
+	return flufikPkg.Signature.Type
 }
 
 func (p *FlufikPackage) JoinedFilePath(filepath string) string {

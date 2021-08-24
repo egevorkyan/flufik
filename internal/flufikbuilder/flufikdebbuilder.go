@@ -139,6 +139,11 @@ func (flufikDeb *FlufikDEBBuilder) Build(writer io.Writer) error {
 	flufikDebPkg.AddPreUn(flufikDeb.packageInfo.PreUnScript())
 	flufikDebPkg.AddPostUn(flufikDeb.packageInfo.PostUnScript())
 
+	//Signature part
+	flufikDebPkg.AddSignatureKey(flufikDeb.packageInfo.AddSignatureKey())
+	flufikDebPkg.AddSignatureType(flufikDeb.packageInfo.AddSignatureType())
+	flufikDebPkg.AddSignaturePassPhrase(flufikDeb.packageInfo.AddSignaturePassPhrase())
+
 	for _, dep := range flufikDeb.packageInfo.Dependencies {
 		if err = flufikDebPkg.Depends.Set(dep.FlufikDEBFormat()); err != nil {
 			return err

@@ -7,7 +7,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/blakesmith/ar"
-	"github.com/egevorkyan/flufik/core"
+	"github.com/egevorkyan/flufik/crypto"
 	"io"
 	"strings"
 	"time"
@@ -26,7 +26,7 @@ type md5Writer struct {
 
 type FlufikDeb struct {
 	FlufikDebMetaData
-	Signature DebSignature
+	Signature FlufikDebSignature
 
 	files []FlufikDebFile
 
@@ -38,13 +38,14 @@ type FlufikDeb struct {
 	configFiles *bytes.Buffer
 }
 
-type DebSignature struct {
-	PackageSignature
+type FlufikDebSignature struct {
+	FlufikPackageSignature
 	Type string
 }
 
-type PackageSignature struct {
+type FlufikPackageSignature struct {
 	PrivateKey string
+	PassPhrase string
 }
 
 func (flufikTgz *tarGzWriter) WriteHeader(header *tar.Header) error {
@@ -301,7 +302,7 @@ func (flufikDeb *FlufikDeb) Write(w io.Writer) error {
 	if flufikDeb.Signature.PrivateKey != "" {
 		data := io.MultiReader(bytes.NewReader(debianBinary), bytes.NewReader(flufikMeta.Bytes()),
 			bytes.NewReader(flufikData.Bytes()))
-		sig, err := core.PGPArmoredSign(data, flufikDeb.Signature.PrivateKey)
+		sig, err := crypto.FlufikDebSigner(data, flufikDeb.Signature.PrivateKey, flufikDeb.Signature.PassPhrase)
 		if err != nil {
 			return fmt.Errorf("signing failure: %w", err)
 		}
@@ -316,7 +317,7 @@ func (flufikDeb *FlufikDeb) Write(w io.Writer) error {
 		}
 
 		if err = flufikDeb.arCompress(writer, "_gpg"+sigType, sig); err != nil {
-			fmt.Errorf("something went wrong with writing signed file: %w", err)
+			return fmt.Errorf("something went wrong with writing signed file: %w", err)
 		}
 
 	}
@@ -328,8 +329,12 @@ func (d *FlufikDeb) AddPreIn(s string)                { d.preIn = s }
 func (d *FlufikDeb) AddPostIn(s string)               { d.postIn = s }
 func (d *FlufikDeb) AddPreUn(s string)                { d.preUn = s }
 func (d *FlufikDeb) AddPostUn(s string)               { d.postUn = s }
-func (d *FlufikDeb) AddSignatureKey(k string)         { d.Signature.PrivateKey = k }
-func (d *FlufikDeb) AddSignatureType(t string)        { d.Signature.Type = t }
+
+//Signature related functions
+
+func (d *FlufikDeb) AddSignatureKey(k string)        { d.Signature.PrivateKey = k }
+func (d *FlufikDeb) AddSignatureType(t string)       { d.Signature.Type = t }
+func (d *FlufikDeb) AddSignaturePassPhrase(p string) { d.Signature.PassPhrase = p }
 
 func NewDeb(flufikMeta FlufikDebMetaData) (*FlufikDeb, error) {
 	return &FlufikDeb{

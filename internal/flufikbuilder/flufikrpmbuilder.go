@@ -3,6 +3,7 @@ package flufikbuilder
 import (
 	"errors"
 	"fmt"
+	"github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
 	"github.com/google/rpmpack"
 	"io"
@@ -144,6 +145,9 @@ func (flufikRpm *FlufikRPMBuilder) Build(writer io.Writer) error {
 		if err = flufikRpmPkg.Requires.Set(dep.FlufikRPMFormat()); err != nil {
 			return err
 		}
+	}
+	if flufikRpm.packageInfo.Signature.PrivateKey != "" {
+		flufikRpmPkg.SetPGPSigner(crypto.FlufikRpmSigner(flufikRpm.packageInfo.Signature.PrivateKey, flufikRpm.packageInfo.Signature.PassPhrase))
 	}
 	return flufikRpmPkg.Write(writer)
 }

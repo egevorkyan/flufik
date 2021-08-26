@@ -13,6 +13,7 @@ functions:
       - $(zip)
       - $(tar)
       - rm -rf flufik-bins
+
   - name: build-linux
     description: build stats tool for Linux
     env:
@@ -29,9 +30,9 @@ functions:
   - name: zip
     description: archiving flufik binaries
     run:
-      - zip -r flufik.zip flufik-bins
+      - zip -r flufik-$((date +"%d.%m.%y-%H:%M:%S")).zip flufik-bins
 
   - name: tar
     description: archiving flufik binaries
     run:
-      - tar czvf flufik.tar.gz flufik-bins
+      - tar czvf flufik-$((date +"%d.%m.%y-%H:%M:%S")).tar.gz flufik-bins

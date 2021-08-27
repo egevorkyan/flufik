@@ -62,30 +62,34 @@ Available Commands:
   build       builds deployment rpm or deb or both packages
   completion  generate the autocompletion script for the specified shell
   help        Help about any command
+  push        pushes any rpm to repository
 
 Flags:
   -h, --help      help for flufik
   -v, --version   version for flufik
-
-Use "flufik [command] --help" for more information about a command.
+  
 ```
 ```shell
 host@local$ flufik -v
 flufik packager version 0.1
 ```
 
-# Usage
-><b>Info:</b> example folder contains some basic examples how to fill configuration
-> for you application package, full complex configuration examples will come soon
-```shell
-#Assuming configuration file is already prepared, run below to build package
-#-s . means source is in same dir from where you run flufik command
-flufik build -c config-deb.yaml -p deb -s .
-flufik build -c config-rpm.yaml -p rpm -s .
-#or this way
-flufik build -c /<PATH>/config-deb.yaml -p deb -s /<PATH>
-flufik build -c /<PATH>/config-rpm.yaml -p rpm -s /<PATH>
-```
+# Detailed documentation
+<b>RPM</b>
+- [Basic package build](docs/build/rpm/basic.md)
+- [Advanced package build](docs/build/rpm/advanced.md)
+- [Full config packaging options](docs/build/rpm/available%20configuration.md)
+
+<b>DEB</b>
+- [Basic package build](docs/build/deb/basic.md)
+- [Advanced package build](docs/build/deb/advanced.md)
+- [Full config packaging options](docs/build/deb/available%20configuration.md)
+
+<b>Upload</b>
+>Currently upload feature is implemented for jfrog repository, nexus and other
+> will be available
+- [JFrog Repository](docs/upload/jfrog%20repository/jfrog.md)
+
 > Flufik can build rpm and deb packages, more packages will come soon
 
 

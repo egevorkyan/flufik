@@ -3,6 +3,7 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
+  VERSION: $((date +"%d%m%y%H%M"))
 
 functions:
   - name: building
@@ -30,9 +31,9 @@ functions:
   - name: zip
     description: archiving flufik binaries
     run:
-      - zip -r flufik-0.1-$((date +"%d%m%y%H%M")).zip flufik-bins
+      - zip -r flufik-0.1-${VERSION}.zip flufik-bins
 
   - name: tar
     description: archiving flufik binaries
     run:
-      - tar czvf flufik-0.1-$((date +"%d%m%y%H%M")).tar.gz flufik-bins
+      - tar czvf flufik-0.1-${VERSION}.tar.gz flufik-bins

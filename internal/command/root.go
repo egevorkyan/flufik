@@ -47,7 +47,7 @@ func NewFlufikRootCommand() *RootFlufikCommand {
 |            \\_____//               \\_____//           |
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 `,
-			Version: core.Version,
+			Version: core.VersionBuilder(),
 		},
 	}
 	c.Command.SetVersionTemplate("flufik packager version {{.Version}}\n")

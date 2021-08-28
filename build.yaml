@@ -3,14 +3,17 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
+  MAJORVERSION: v0.1
   VERSION: $((date +"%d%m%y%H%M"))
 
 functions:
   - name: building
     description: Build with archieve
     run:
+      - $(prepare-env)
       - $(build-linux)
       - $(build-mac)
+      - $(build-pkg)
       - $(zip)
       - $(tar)
       - rm -rf flufik-bins
@@ -20,20 +23,38 @@ functions:
     env:
       GOOS: linux
     run:
-      - go build -o flufik-bins/linux/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${MAJORVERSION}-${VERSION}'" -o flufik-bins/linux/flufik cmd/main/main.go
   - name: build-mac
     description: build flufik tool for MacOS
     env:
       GOOS: darwin
     run:
-      - go build -o flufik-bins/darwin/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${MAJORVERSION}-${VERSION}'" -o flufik-bins/darwin/flufik cmd/main/main.go
 
   - name: zip
     description: archiving flufik binaries
     run:
-      - zip -r flufik-0.1-${VERSION}.zip flufik-bins
+      - zip -r temp/flufik-${MAJORVERSION}-${VERSION}.zip flufik-bins
 
   - name: tar
     description: archiving flufik binaries
     run:
-      - tar czvf flufik-0.1-${VERSION}.tar.gz flufik-bins
+      - tar czvf temp/flufik-${MAJORVERSION}-${VERSION}.tar.gz flufik-bins
+
+  - name: prepare-env
+    description: environment preparation
+    run:
+      - mkdir temp
+      - cp ${HOME}/.flufik/config-rpm.yaml.tem temp/
+      - cp ${HOME}/.flufik/config-deb.yaml.tem temp/
+      - cp ${HOME}/.flufik/.env .
+      - art merge temp/config-rpm.yaml.tem
+      - art merge temp/config-deb.yaml.tem
+
+  - name: build-pkg
+    description: build rpm and deb packages
+    run:
+      - flufik build -c temp/config-rpm.yaml -d temp/ -p rpm
+      - flufik build -c temp/config-deb.yaml -d temp/ -p deb
+#      - flufik push -d ${RELEASE_RPM} -b flufik-${MAJORVERSION}-${VERSION}.${RELEASE_RPM}.${ARCH}.rpm -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_RPM} -u ${JFROG_REPO_USER}
+#      - flufik push -a ${ARCH_DEB} -d ${DIST} -b flufik_${MAJORVERSION}-${VERSION}_${ARCH_DEB}.deb -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_DEB} -u ${JFROG_REPO_USER}

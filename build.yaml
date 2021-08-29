@@ -3,7 +3,7 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
-  MAJORVERSION: v0.1
+  MAJORVERSION: 0.1
   VERSION: $((date +"%d%m%y%H%M"))
 
 functions:
@@ -47,6 +47,7 @@ functions:
       - mkdir temp
       - cp ${HOME}/.flufik/config-rpm.yaml.tem temp/
       - cp ${HOME}/.flufik/config-deb.yaml.tem temp/
+      - cp ${HOME}/.flufik/repo-private2.asc temp/
       - cp ${HOME}/.flufik/.env .
       - art merge temp/config-rpm.yaml.tem
       - art merge temp/config-deb.yaml.tem

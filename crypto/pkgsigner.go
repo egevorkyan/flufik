@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/openpgp/packet"
 	"io"
 	"io/ioutil"
+	"unicode"
 )
 
 // FlufikDebSigner - Debian package signer
@@ -51,9 +52,18 @@ func flufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, e
 		return nil, fmt.Errorf("reading PGP private key failure %w", err)
 	}
 
-	entityList, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(privateKeyFile))
-	if err != nil {
-		return nil, fmt.Errorf("decoding armored PGP keyring failure %w", err)
+	var entityList openpgp.EntityList
+
+	if FlufikCheckPGPKeyType(privateKeyFile) {
+		entityList, err = openpgp.ReadArmoredKeyRing(bytes.NewReader(privateKeyFile))
+		if err != nil {
+			return nil, fmt.Errorf("decoding armored PGP keyring failure %w", err)
+		}
+	} else {
+		entityList, err = openpgp.ReadKeyRing(bytes.NewReader(privateKeyFile))
+		if err != nil {
+			return nil, fmt.Errorf("decoding failure %w", err)
+		}
 	}
 
 	key := entityList[0]
@@ -63,7 +73,7 @@ func flufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, e
 	}
 
 	if key.PrivateKey.Encrypted {
-		if len(passPhrase) == 0 {
+		if passPhrase == "" {
 			return nil, fmt.Errorf("key encrypted, passphrase not provided")
 		}
 
@@ -82,4 +92,13 @@ func flufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, e
 	}
 
 	return key, nil
+}
+
+func FlufikCheckPGPKeyType(pgpKey []byte) bool {
+	for pgp := 0; pgp < len(pgpKey); pgp++ {
+		if pgpKey[pgp] > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
 }

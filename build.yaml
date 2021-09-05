@@ -3,8 +3,8 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
-  MAJORVERSION: 0.1
-  VERSION: $((date +"%d%m%y%H%M"))
+  VERSION: 0.1
+  RELEASE: 1
 
 
 functions:
@@ -24,23 +24,23 @@ functions:
     env:
       GOOS: linux
     run:
-      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${MAJORVERSION}-${VERSION}'" -o flufik-bins/linux/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o flufik-bins/linux/flufik cmd/main/main.go
   - name: build-mac
     description: build flufik tool for MacOS
     env:
       GOOS: darwin
     run:
-      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${MAJORVERSION}-${VERSION}'" -o flufik-bins/darwin/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o flufik-bins/darwin/flufik cmd/main/main.go
 
   - name: zip
     description: archiving flufik binaries
     run:
-      - zip -r temp/flufik-${MAJORVERSION}-${VERSION}.zip flufik-bins
+      - zip -r temp/flufik-${VERSION}-${RELEASE}.zip flufik-bins
 
   - name: tar
     description: archiving flufik binaries
     run:
-      - tar czvf temp/flufik-${MAJORVERSION}-${VERSION}.tar.gz flufik-bins
+      - tar czvf temp/flufik-${VERSION}-${RELEASE}.tar.gz flufik-bins
 
   - name: prepare-env
     description: environment preparation
@@ -49,7 +49,6 @@ functions:
       - mkdir temp
       - cp ${HOME}/.flufik/config-rpm.yaml.tem temp/
       - cp ${HOME}/.flufik/config-deb.yaml.tem temp/
-      - cp ${HOME}/.flufik/repo-private2.asc temp/
       - cp ${HOME}/.flufik/.env .
       - art merge temp/config-rpm.yaml.tem
       - art merge temp/config-deb.yaml.tem

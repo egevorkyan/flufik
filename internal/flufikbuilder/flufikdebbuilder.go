@@ -17,6 +17,7 @@ func (flufikDeb *FlufikDEBBuilder) metaData(flufikMeta flufikinfo.FlufikPackageM
 	return flufikdeb.FlufikDebMetaData{
 		Package:      flufikMeta.Name,
 		Version:      flufikMeta.Version,
+		Release:      flufikMeta.Release,
 		Maintainer:   flufikMeta.Maintainer,
 		Summary:      flufikMeta.Summary,
 		Description:  flufikMeta.Description,
@@ -107,8 +108,10 @@ func (flufikDeb *FlufikDEBBuilder) FileName() (string, error) {
 		return "", fmt.Errorf("undefined package name")
 	} else if meta.Version == "" {
 		return "", fmt.Errorf("undefined package version")
+	} else if meta.Release == "" {
+		return "", fmt.Errorf("undefined package release")
 	}
-	return fmt.Sprintf("%s_%s_%s.deb", meta.Name, meta.Version, flufikDeb.arch()), nil
+	return fmt.Sprintf("%s_%s-%s_%s.deb", meta.Name, meta.Version, meta.Release, flufikDeb.arch()), nil
 }
 
 func (flufikDeb *FlufikDEBBuilder) Build(writer io.Writer) error {

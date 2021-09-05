@@ -13,6 +13,7 @@ type Relations []string
 type FlufikDebMetaData struct {
 	Package,
 	Version,
+	Release,
 	Maintainer,
 	Summary,
 	Description,
@@ -37,6 +38,7 @@ type FlufikDebMetaData struct {
 
 const metaHeader = `Package: %s
 Version: %s
+Release: %s
 Architecture: %s
 Maintainer: %s
 Homepage: %s
@@ -82,6 +84,7 @@ func (flufikMetaData *FlufikDebMetaData) MakeControl() []byte {
 		metaHeader,
 		flufikMetaData.Package,
 		flufikMetaData.Version,
+		flufikMetaData.Release,
 		flufikMetaData.Architecture,
 		flufikMetaData.Maintainer,
 		flufikMetaData.Homepage,

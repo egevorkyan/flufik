@@ -9,6 +9,9 @@ Flufik helps to pack your application
 
 - [Flufik Installation: Manual on Linux, MacOS or installation using yum, apt-get](docs/installation.md)
 
+<b>Naming Convention</b>
+- [RPM and DEB packages naming convention](docs/build/naming-convention.md)
+
 <b>RPM</b>
 - [Basic package build](docs/build/rpm/basic.md)
 - [Advanced package build](docs/build/rpm/advanced.md)

@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/packet"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/egevorkyan/flufik/core"
 	"io"
 	"io/ioutil"
 	"unicode"
@@ -13,7 +14,7 @@ import (
 
 // FlufikDebSigner - Debian package signer
 func FlufikDebSigner(message io.Reader, keyFile string, passPhrase string) ([]byte, error) {
-	key, err := flufikReadPrivateKey(keyFile, passPhrase)
+	key, err := FlufikReadPrivateKey(keyFile, passPhrase)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +33,7 @@ func FlufikDebSigner(message io.Reader, keyFile string, passPhrase string) ([]by
 // FlufikRpmSigner - rpm package signer
 func FlufikRpmSigner(keyFile string, passPhrase string) func([]byte) ([]byte, error) {
 	return func(data []byte) ([]byte, error) {
-		key, err := flufikReadPrivateKey(keyFile, passPhrase)
+		key, err := FlufikReadPrivateKey(keyFile, passPhrase)
 		if err != nil {
 			return nil, err
 		}
@@ -46,8 +47,8 @@ func FlufikRpmSigner(keyFile string, passPhrase string) func([]byte) ([]byte, er
 	}
 }
 
-func flufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, error) {
-	privateKeyFile, err := ioutil.ReadFile(keyFile)
+func FlufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, error) {
+	privateKeyFile, err := ioutil.ReadFile(core.FlufikKeyFilePath(keyFile))
 	if err != nil {
 		return nil, fmt.Errorf("reading PGP private key failure %w", err)
 	}

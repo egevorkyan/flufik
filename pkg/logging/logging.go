@@ -1,13 +1,14 @@
 package logging
 
 import (
+	"github.com/egevorkyan/flufik/core"
 	"io"
 	"log"
 	"os"
 )
 
 func ErrorHandler(msg string, e error) {
-	file, err := os.OpenFile("all.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(core.FlufikLoggingFilePath(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
@@ -16,7 +17,7 @@ func ErrorHandler(msg string, e error) {
 			log.Fatalf("file closing fauilure: %v", err)
 		}
 	}()
-	wrt := io.MultiWriter(file)
+	wrt := io.MultiWriter(os.Stdout, file)
 	log.SetOutput(wrt)
 	log.Println(msg, e)
 }

@@ -5,6 +5,14 @@ Flufik helps to pack your application
 
 # Detailed documentation
 
+<b>Flufik Home Base</b>
+
+- [Flufik Home Base](docs/home-dirs.md)
+
+<b>PGP Key Generator</b>
+
+- [Flufik PGP passphrase protected key generation](docs/pgp.md)
+
 <b>Flufik installation</b>
 
 - [Flufik Installation: Manual on Linux, MacOS or installation using yum, apt-get](docs/installation.md)

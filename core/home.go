@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"log"
 	"os/user"
 	"path/filepath"
@@ -10,6 +11,7 @@ const FLUFIKHOME = ".flufik"
 const FLUFIKKEYSDIR = "keys"
 const FLUFIKLOGGINGDIR = "logs"
 const FLUFIKPKGCONFIGDIR = "configs" //yaml configuration file or template, to build based on that package
+const FLUFIKLOGGINGFILE = "all.log"
 
 func Home() string {
 	u, err := user.Current()
@@ -33,4 +35,16 @@ func FlufikLoggingHome() string {
 
 func FlufikConfigurationHome() string {
 	return filepath.Join(FlufikHome(), FLUFIKPKGCONFIGDIR)
+}
+
+func FlufikLoggingFilePath() string {
+	return filepath.Join(FlufikLoggingHome(), FLUFIKLOGGINGFILE)
+}
+
+func FlufikKeyFileName(private, public, extention string) (string, string) {
+	return filepath.Join(FlufikKeysHome(), fmt.Sprintf("%s.%s", private, extention)), filepath.Join(FlufikKeysHome(), fmt.Sprintf("%s.%s", public, extention))
+}
+
+func FlufikKeyFilePath(name string) string {
+	return filepath.Join(FlufikKeysHome(), name)
 }

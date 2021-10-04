@@ -16,6 +16,7 @@ type JFrog struct {
 	distribution string
 	component    string
 	architecture string
+	repoName     string
 }
 
 func (j *JFrog) FlufikJFrogUpload() error {
@@ -26,10 +27,10 @@ func (j *JFrog) FlufikJFrogUpload() error {
 	}
 	pkg := core.CheckPackage(j.packageName)
 	if pkg == "deb" {
-		requestUrl = fmt.Sprintf("%s/%s;deb.distribution=%s;deb.component=%s;deb.architecture=%s", j.repoUrl,
+		requestUrl = fmt.Sprintf("%s/artifactory/%s/pool/%s;deb.distribution=%s;deb.component=%s;deb.architecture=%s", j.repoUrl, j.repoName,
 			j.packageName, j.distribution, j.component, j.architecture)
 	} else if pkg == "rpm" {
-		requestUrl = fmt.Sprintf("%s/%s/%s", j.repoUrl, j.distribution, j.packageName)
+		requestUrl = fmt.Sprintf("%s/artifactory/%s/%s/%s", j.repoUrl, j.repoName, j.distribution, j.packageName)
 	} else {
 		return fmt.Errorf("failure: %s", pkg)
 	}
@@ -63,7 +64,7 @@ func (j *JFrog) FlufikJFrogUpload() error {
 	return nil
 }
 
-func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, component, architecture string) *JFrog {
+func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, component, architecture, repoName string) *JFrog {
 	j := &JFrog{
 		repoUser:     repoUser,
 		repoPwd:      repoPwd,
@@ -73,6 +74,7 @@ func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, comp
 		distribution: distribution,
 		component:    component,
 		architecture: architecture,
+		repoName:     repoName,
 	}
 	return j
 }

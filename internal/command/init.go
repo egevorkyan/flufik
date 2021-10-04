@@ -39,4 +39,11 @@ func flufikHomeInit() {
 			logging.ErrorHandler("can not create configuration folder", err)
 		}
 	}
+
+	_, err = os.Stat(core.FlufikOutputHome())
+	if os.IsNotExist(err) {
+		if err = os.Mkdir(core.FlufikOutputHome(), os.ModePerm); err != nil {
+			logging.ErrorHandler("can not create output folder", err)
+		}
+	}
 }

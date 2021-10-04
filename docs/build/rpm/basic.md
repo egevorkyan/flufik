@@ -22,8 +22,10 @@ files:
 ```
 2. Run flufik to package based on config file provided
 ```shell
-flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml -d <TARGET_PATH_SAVE_BUILT_PACKAGE>
+flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml
 ```
+><b>Note: </b> If -d argument is not provided flufik will save package to $HOME/.flufik/output. If you want to save
+> to different location you can specify -d argument
 
 # Option 2: Inline script without any related documents, libraries and files
 1. Prepare config file - config.yaml
@@ -51,8 +53,10 @@ files:
 ```
 2. Run flufik to package based on config file provided
 ```shell
-flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml -d <TARGET_PATH_SAVE_BUILT_PACKAGE>
+flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml
 ```
+><b>Note: </b> If -d argument is not provided flufik will save package to $HOME/.flufik/output. If you want to save
+> to different location you can specify -d argument
 
 # Option 3: Inline script and executable binary without any related documents, libraries and files
 1. Prepare config file - config.yaml
@@ -84,8 +88,10 @@ files:
 ```
 2. Run flufik to package based on config file provided
 ```shell
-flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml -d <TARGET_PATH_SAVE_BUILT_PACKAGE>
+flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml
 ```
+><b>Note: </b> If -d argument is not provided flufik will save package to $HOME/.flufik/output. If you want to save
+> to different location you can specify -d argument
 
 # Option 4: Full basic Inline script and executable binary without any related documents, libraries and files
 1. Prepare config file - config.yaml
@@ -132,7 +138,10 @@ postuninstall:
 ```
 2. Run flufik to package based on config file provided
 ```shell
-flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml -d <TARGET_PATH_SAVE_BUILT_PACKAGE>
+flufik build -p rpm -c <PATH_TO_CONFIG>/config.yaml
 ```
+><b>Note: </b> If -d argument is not provided flufik will save package to $HOME/.flufik/output. If you want to save
+> to different location you can specify -d argument
+
 ><b>Info: </b> if --source-directory or -d not specified, default destination location,
 > where rpm files will be saved is current location from where command executed.

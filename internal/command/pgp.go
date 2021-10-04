@@ -20,7 +20,7 @@ func NewFlufikPgpCommand() *PgpFlufikCommand {
 	c := &PgpFlufikCommand{
 		command: &cobra.Command{
 			Use:   "pgp",
-			Short: "generates pgp key",
+			Short: "generates pgp key with passphrase",
 		},
 	}
 	c.command.Flags().StringVarP(&c.name, "name", "n", "", "pgp key name")

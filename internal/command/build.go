@@ -2,12 +2,12 @@ package command
 
 import (
 	"bufio"
+	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/internal/flufikbuilder"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/spf13/cobra"
 	"os"
-	"path"
 )
 
 type BuildFlufikCommand struct {
@@ -25,7 +25,7 @@ func NewFlufikBuildCommand() *BuildFlufikCommand {
 		},
 	}
 	c.command.Flags().StringVarP(&c.buildPack, "package", "p", "", "used to identify what type of package to build: values rpm|deb")
-	c.command.Flags().StringVarP(&c.destDir, "destination-directory", "d", ".", "source directory default is current location")
+	c.command.Flags().StringVarP(&c.destDir, "destination-directory", "d", core.FlufikOutputHome(), "output directory default is current user ~/.flufik/output")
 	c.command.Flags().StringVarP(&c.buildConfigPath, "configuration-file", "c", "config.yaml", "configuration file used during build, default is current location config.yaml")
 	c.command.Run = c.Run
 	return c
@@ -51,9 +51,10 @@ func (c *BuildFlufikCommand) Run(command *cobra.Command, args []string) {
 func buildFlufikPackage(flufikBuilder flufikbuilder.FlufikPackageBuilder, directory string) error {
 	var pkgFile *os.File
 	if pkgPath, err := flufikBuilder.FileName(); err == nil {
-		pkgPath = path.Join(directory, pkgPath)
+		//pkgPath = path.Join(directory, pkgPath)
+		p := core.FlufikPkgFilePath(pkgPath, directory)
 
-		if pkgFile, err = os.Create(pkgPath); err != nil {
+		if pkgFile, err = os.Create(p); err != nil {
 			return err
 		}
 	} else {

@@ -4,7 +4,7 @@ env:
   CGO_ENABLED: 0
   GOARCH: amd64
   VERSION: 0.1
-  RELEASE: 2
+  RELEASE: 3
 
 
 functions:
@@ -17,7 +17,10 @@ functions:
       - $(build-pkg)
       - $(zip)
       - $(tar)
+      - mv flufik-bins/darwin/flufik /usr/local/bin/flufik
       - rm -rf flufik-bins
+      - rm -rf temp
+      - rm -rf .env
 
   - name: build-linux
     description: build stats tool for Linux
@@ -35,28 +38,28 @@ functions:
   - name: zip
     description: archiving flufik binaries
     run:
-      - zip -r temp/flufik-${VERSION}-${RELEASE}.zip flufik-bins
+      - zip -r ${HOME}/.flufik/output/flufik-${VERSION}-${RELEASE}.zip flufik-bins
 
   - name: tar
     description: archiving flufik binaries
     run:
-      - tar czvf temp/flufik-${VERSION}-${RELEASE}.tar.gz flufik-bins
+      - tar czvf ${HOME}/.flufik/output/flufik-${VERSION}-${RELEASE}.tar.gz flufik-bins
 
   - name: prepare-env
     description: environment preparation
     run:
       - rm -rf temp
       - mkdir temp
-      - cp ${HOME}/.flufik/config-rpm.yaml.tem temp/
-      - cp ${HOME}/.flufik/config-deb.yaml.tem temp/
-      - cp ${HOME}/.flufik/.env .
+      - cp ${HOME}/.flufik/configs/config-rpm.yaml.tem temp/
+      - cp ${HOME}/.flufik/configs/config-deb.yaml.tem temp/
+      - cp ${HOME}/.flufik/configs/.env .
       - art merge temp/config-rpm.yaml.tem
       - art merge temp/config-deb.yaml.tem
 
   - name: build-pkg
     description: build rpm and deb packages
     run:
-      - flufik build -c temp/config-rpm.yaml -d temp/ -p rpm
-      - flufik build -c temp/config-deb.yaml -d temp/ -p deb
+      - flufik build -c temp/config-rpm.yaml -p rpm
+      - flufik build -c temp/config-deb.yaml -p deb
       #- flufik push -d ${RELEASE_RPM} -b flufik-${MAJORVERSION}-${VERSION}.${RELEASE_RPM}.${ARCH}.rpm -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_RPM} -u ${JFROG_REPO_USER}
       #- flufik push -a ${ARCH_DEB} -d ${DIST} -b flufik_${MAJORVERSION}-${VERSION}_${ARCH_DEB}.deb -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_DEB} -u ${JFROG_REPO_USER}

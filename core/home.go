@@ -11,6 +11,7 @@ const FLUFIKHOME = ".flufik"
 const FLUFIKKEYSDIR = "keys"
 const FLUFIKLOGGINGDIR = "logs"
 const FLUFIKPKGCONFIGDIR = "configs" //yaml configuration file or template, to build based on that package
+const FLUFIKPKGOUTPUTDIR = "output"
 const FLUFIKLOGGINGFILE = "all.log"
 
 func Home() string {
@@ -27,6 +28,10 @@ func FlufikHome() string {
 
 func FlufikKeysHome() string {
 	return filepath.Join(FlufikHome(), FLUFIKKEYSDIR)
+}
+
+func FlufikOutputHome() string {
+	return filepath.Join(FlufikHome(), FLUFIKPKGOUTPUTDIR)
 }
 
 func FlufikLoggingHome() string {
@@ -47,4 +52,8 @@ func FlufikKeyFileName(private, public, extention string) (string, string) {
 
 func FlufikKeyFilePath(name string) string {
 	return filepath.Join(FlufikKeysHome(), name)
+}
+
+func FlufikPkgFilePath(pkg, path string) string {
+	return filepath.Join(path, pkg)
 }

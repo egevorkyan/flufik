@@ -1,19 +1,16 @@
-# Push packages to jfrog repository
+# Push packages to nexus repository
 ___
 
 # Upload RPM package
 ```shell
-flufik push -w jfrog -d <DIST_NAME> -b <EXAMPLE.rpm> -a <x86_64|arm> -r <JFROG_REPO_NAME> -l <JFROG_REPO_URL> -u <JFROG_USER> -p <JFRO_PWD>
+flufik push -w nexus -l <NEXUS_REPO_URL> -u <NEXUS_USER> -p <NEXUS_PWD> -b <EXAMPLE.rpm> -n yum  -r <NEXUS_REPO_NAME>
 ```
 
 # Upload Deb package
 ```shell
-flufik push -w jfrog -d <DIST_NAME> -b <EXAMPLE.deb> -a <amd64|arm> -r <JFROG_REPO_NAME> -l <JFROG_REPO_URL> -u <JFROG_USER> -p <JFRO_PWD>
+flufik push -w nexus -l <NEXUS_REPO_URL> -u <NEXUS_USER> -p <NEXUS_PWD> -b <EXAMPLE.deb> -n apt  -r <NEXUS_REPO_NAME>
 ```
-><b>Info: </b> Some values if will not require changes like -c flag will take default values.
-> During push to repository package, same time sha1, sha256 and md5 hashes provided.
-
-><b>Note: </b> If -m argument is not provided flufik will take package from $HOME/.flufik/output. If you are uploading from 
+><b>Note: </b> If -m argument is not provided flufik will take package from $HOME/.flufik/output. If you are uploading from
 > different location you can specify -m argument
 
 ```shell

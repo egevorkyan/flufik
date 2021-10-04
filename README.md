@@ -34,6 +34,7 @@ Flufik helps to pack your application
 >Currently upload feature is implemented for jfrog repository, nexus and other
 > will be available
 - [JFrog Repository](docs/upload/jfrog%20repository/jfrog.md)
+- [Nexus Repository](docs/upload/nexus_repository/nexus.md)
 
 > Flufik can build rpm and deb packages, more packages will come soon
 

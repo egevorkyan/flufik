@@ -7,11 +7,11 @@ import (
 
 func TestFlufikReadPrivateKey(t *testing.T) {
 	//read passphrased private key
-	en, err := FlufikReadPrivateKey("Test1-priv.pgp", "Test123")
+	en, err := FlufikReadPrivateKey("flufik-priv.pgp", "Cisco2013")
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(en.PrivateKey)
+	fmt.Println(en)
 
 }
 

@@ -35,11 +35,13 @@ func NewPGP(name, email, comment, keyType, passphrase string, bits int) *FlufikP
 	version := fmt.Sprintf("flufik-%s", core.Version)
 
 	armoredPrivateKey, err := lockedKey.ArmorWithCustomHeaders(comment, version)
+	//armoredPrivateKey, err := lockedKey.Armor()
 	if err != nil {
 		logging.ErrorHandler("armored private key failure ", err)
 	}
 	fpgp.privateKey = armoredPrivateKey
 	armoredPublicKey, err := lockedKey.GetArmoredPublicKeyWithCustomHeaders(comment, version)
+	//armoredPublicKey, err := lockedKey.GetArmoredPublicKey()
 	fpgp.publicKey = armoredPublicKey
 	return &fpgp
 }

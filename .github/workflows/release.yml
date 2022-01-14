@@ -48,7 +48,7 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: 1.17
-          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ APP_VERSION }}-${{ env.BUILD }}"
+          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}-${{ env.BUILD }}"
           project_path: "./cmd/main"
           binary_name: "flufik"
           executable_compression: upx

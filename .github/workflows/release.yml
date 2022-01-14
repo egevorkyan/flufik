@@ -38,14 +38,21 @@ jobs:
             goos: windows
     steps:
       - uses: actions/checkout@v2
+      - name: Set APP_VERSION env
+        run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
+      - name: Set BUILD_TIME env
+        run: echo BUILD_TIME=$(date) >> ${GITHUB_ENV}
+      - name: Environment Printer
+        uses: managedkaos/print-env@v1.0
       - uses: wangyoucao577/go-release-action@v1.22
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: 1.17
+          ldflags: -X "core.Version=${{ env.APP_VERSION }}-${{ env.BUILD_TIME }}"
           project_path: "./cmd/main"
-          binary_name: "demo"
+          binary_name: "flufik"
           executable_compression: upx
           overwrite: TRUE
           sha256sum: TRUE

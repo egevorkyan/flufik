@@ -147,7 +147,7 @@ func (flufikRpm *FlufikRPMBuilder) Build(writer io.Writer) error {
 		}
 	}
 	if flufikRpm.packageInfo.Signature.PrivateKey != "" {
-		flufikRpmPkg.SetPGPSigner(crypto.FlufikRpmSigner(flufikRpm.packageInfo.Signature.PrivateKey, flufikRpm.packageInfo.Signature.PassPhrase))
+		flufikRpmPkg.SetPGPSigner(crypto.FlufikRpmSigner(flufikRpm.packageInfo.Signature.PrivateKey))
 
 	}
 	return flufikRpmPkg.Write(writer)

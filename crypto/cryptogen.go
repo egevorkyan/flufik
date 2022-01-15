@@ -5,19 +5,26 @@ import (
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/logging"
-	"io/ioutil"
 	"os"
 )
 
 const (
 	DEFAULTKEYTYPE = "rsa"
 	DEFAULTKEYBITS = 4096
-	EXTENSION      = "pgp"
+	//EXTENSION      = "pgp"
+	PRIVATEKEY    = "_priv"
+	PUBLICKEY     = "_pub"
+	PRIVATEKEYPWD = "_pwd"
+	DEFAULTPWDLEN = 15
+	DEFAULTPWDNUM = 5
+	DEFAULTPWDSYM = 4
+	DEFAULTPWDCAP = 3
 )
 
 type FlufikPGP struct {
 	privateKey string
 	publicKey  string
+	passPhrase string
 }
 
 func NewPGP(name, email, comment, keyType, passphrase string, bits int) *FlufikPGP {
@@ -35,29 +42,17 @@ func NewPGP(name, email, comment, keyType, passphrase string, bits int) *FlufikP
 	version := fmt.Sprintf("flufik-%s", core.Version)
 
 	armoredPrivateKey, err := lockedKey.ArmorWithCustomHeaders(comment, version)
-	//armoredPrivateKey, err := lockedKey.Armor()
 	if err != nil {
 		logging.ErrorHandler("armored private key failure ", err)
 	}
 	fpgp.privateKey = armoredPrivateKey
 	armoredPublicKey, err := lockedKey.GetArmoredPublicKeyWithCustomHeaders(comment, version)
-	//armoredPublicKey, err := lockedKey.GetArmoredPublicKey()
 	fpgp.publicKey = armoredPublicKey
+	fpgp.passPhrase = passphrase
 	return &fpgp
 }
 
-func (f *FlufikPGP) SaveKeys(privName, pubName, ext string) error {
-	privateKeyPath, publicKeyPath := core.FlufikKeyFileName(privName, pubName, ext)
-	if err := ioutil.WriteFile(privateKeyPath, []byte(f.privateKey), os.ModePerm); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(publicKeyPath, []byte(f.publicKey), os.ModePerm); err != nil {
-		return err
-	}
-	return nil
-}
-
-func GenerateKey(name, email, comment, keyType, passphrase string, bits int) error {
+func GenerateKey(name, email, comment, keyType string, bits int) error {
 	if name == "" {
 		h, _ := os.Hostname()
 		name = fmt.Sprintf("flufik-%s", h)
@@ -74,15 +69,22 @@ func GenerateKey(name, email, comment, keyType, passphrase string, bits int) err
 	if comment == "" {
 		comment = fmt.Sprintf("Flufik - Type: %s %v Bits", keyType, bits)
 	}
-	if passphrase == "" {
-		return fmt.Errorf("Passphrase is empty, please provide passphrase")
-	}
-	pgp := NewPGP(name, email, comment, keyType, passphrase, bits)
 
-	privateKeyName := fmt.Sprintf("%s-%s", name, "priv")
-	publicKeyName := fmt.Sprintf("%s-%s", name, "pub")
+	//Generating automatically strong passPhase
+	passPhrase := PasswordGenerator(DEFAULTPWDLEN, DEFAULTPWDSYM, DEFAULTPWDNUM, DEFAULTPWDCAP)
 
-	if err := pgp.SaveKeys(privateKeyName, publicKeyName, EXTENSION); err != nil {
+	pgp := NewPGP(name, email, comment, keyType, passPhrase, bits)
+
+	//Commented section stores keys to files, soon will be decommissioned
+	//privateKeyName := fmt.Sprintf("%s-%s", name, "priv")
+	//publicKeyName := fmt.Sprintf("%s-%s", name, "pub")
+
+	//if err := pgp.SaveKeys(privateKeyName, publicKeyName, EXTENSION); err != nil {
+	//	return err
+	//}
+
+	//Saving private/public/passphrase keys in database
+	if err := pgp.StoreKeysToDb(name); err != nil {
 		return err
 	}
 	return nil

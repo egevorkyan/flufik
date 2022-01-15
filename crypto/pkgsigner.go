@@ -7,14 +7,14 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/egevorkyan/flufik/core"
+	"github.com/egevorkyan/flufik/pkg/plugins/badgerdb"
 	"io"
-	"io/ioutil"
 	"unicode"
 )
 
 // FlufikDebSigner - Debian package signer
-func FlufikDebSigner(message io.Reader, keyFile string, passPhrase string) ([]byte, error) {
-	key, err := FlufikReadPrivateKey(keyFile, passPhrase)
+func FlufikDebSigner(message io.Reader, privateKey string) ([]byte, error) {
+	key, err := FlufikReadPrivateKey(privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -31,9 +31,9 @@ func FlufikDebSigner(message io.Reader, keyFile string, passPhrase string) ([]by
 }
 
 // FlufikRpmSigner - rpm package signer
-func FlufikRpmSigner(keyFile string, passPhrase string) func([]byte) ([]byte, error) {
+func FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error) {
 	return func(data []byte) ([]byte, error) {
-		key, err := FlufikReadPrivateKey(keyFile, passPhrase)
+		key, err := FlufikReadPrivateKey(privateKey)
 		if err != nil {
 			return nil, err
 		}
@@ -47,21 +47,86 @@ func FlufikRpmSigner(keyFile string, passPhrase string) func([]byte) ([]byte, er
 	}
 }
 
-func FlufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, error) {
-	privateKeyFile, err := ioutil.ReadFile(core.FlufikKeyFilePath(keyFile))
+func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
+	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
+	privateEncoded, err := db.Get(fmt.Sprintf("%s%s", privateKey, PRIVATEKEY))
 	if err != nil {
-		return nil, fmt.Errorf("reading PGP private key failure %w", err)
+		return nil, err
 	}
-
+	decodedPrivateKey, err := B64Decoder(string(privateEncoded))
+	if err != nil {
+		return nil, err
+	}
+	passPhraseEncoded, err := db.Get(fmt.Sprintf("%s%s", privateKey, PRIVATEKEYPWD))
+	if err != nil {
+		return nil, err
+	}
+	passPhraseDecoded, err := B64Decoder(string(passPhraseEncoded))
+	if err != nil {
+		return nil, err
+	}
 	var entityList openpgp.EntityList
 
-	if FlufikCheckPGPKeyType(privateKeyFile) {
-		entityList, err = openpgp.ReadArmoredKeyRing(bytes.NewReader(privateKeyFile))
+	if FlufikCheckPGPKeyType(decodedPrivateKey) {
+		entityList, err = openpgp.ReadArmoredKeyRing(bytes.NewReader(decodedPrivateKey))
 		if err != nil {
 			return nil, fmt.Errorf("decoding armored PGP keyring failure %w", err)
 		}
 	} else {
-		entityList, err = openpgp.ReadKeyRing(bytes.NewReader(privateKeyFile))
+		entityList, err = openpgp.ReadKeyRing(bytes.NewReader(decodedPrivateKey))
+		if err != nil {
+			return nil, fmt.Errorf("decoding failure %w", err)
+		}
+	}
+
+	key := entityList[0]
+
+	if key.PrivateKey == nil {
+		return nil, fmt.Errorf("no private key")
+	}
+
+	if key.PrivateKey.Encrypted {
+		if string(passPhraseDecoded) == "" {
+			return nil, fmt.Errorf("key encrypted, passphrase not provided")
+		}
+		if err = key.PrivateKey.Decrypt(passPhraseDecoded); err != nil {
+			return nil, fmt.Errorf("failure decrypting private key: %w", err)
+		}
+		for _, subKey := range key.Subkeys {
+			if subKey.PrivateKey != nil {
+				if err = subKey.PrivateKey.Decrypt(passPhraseDecoded); err != nil {
+					return nil, fmt.Errorf("failure decrypting sub private key: %w", err)
+				}
+			}
+		}
+
+	}
+	db.Close()
+
+	return key, nil
+}
+
+func FlufikDecryptPrivateKey(keyName, passPhrase, dbName string) (*openpgp.Entity, error) {
+	db := badgerdb.NewFlufikBadgerDB(dbName)
+	encodedPrivateKey, err := db.Get(keyName)
+	if err != nil {
+		return nil, fmt.Errorf("fatal: %w", err)
+	}
+
+	privateKey, err := B64Decoder(string(encodedPrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("fatal: %w", err)
+	}
+
+	var entityList openpgp.EntityList
+
+	if FlufikCheckPGPKeyType(privateKey) {
+		entityList, err = openpgp.ReadArmoredKeyRing(bytes.NewReader(privateKey))
+		if err != nil {
+			return nil, fmt.Errorf("decoding armored PGP keyring failure %w", err)
+		}
+	} else {
+		entityList, err = openpgp.ReadKeyRing(bytes.NewReader(privateKey))
 		if err != nil {
 			return nil, fmt.Errorf("decoding failure %w", err)
 		}
@@ -91,6 +156,7 @@ func FlufikReadPrivateKey(keyFile string, passPhrase string) (*openpgp.Entity, e
 		}
 
 	}
+	db.Close()
 
 	return key, nil
 }

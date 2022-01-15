@@ -302,7 +302,7 @@ func (flufikDeb *FlufikDeb) Write(w io.Writer) error {
 	if flufikDeb.Signature.PrivateKey != "" {
 		data := io.MultiReader(bytes.NewReader(debianBinary), bytes.NewReader(flufikMeta.Bytes()),
 			bytes.NewReader(flufikData.Bytes()))
-		sig, err := crypto.FlufikDebSigner(data, flufikDeb.Signature.PrivateKey, flufikDeb.Signature.PassPhrase)
+		sig, err := crypto.FlufikDebSigner(data, flufikDeb.Signature.PrivateKey)
 		if err != nil {
 			return fmt.Errorf("signing failure: %w", err)
 		}

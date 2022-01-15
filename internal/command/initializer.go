@@ -3,12 +3,12 @@ package command
 func InitialiseRootCmd() *RootFlufikCommand {
 	rootFlufikCommand := NewFlufikRootCommand()
 	buildFlufikCommand := NewFlufikBuildCommand()
-	genFlufikPgpCommand := NewFlufikPgpCommand()
+	menuFlufikPgpCommand := NewFlufikPgp()
 	pushFlufikCommand := NewFlufikPushCommand()
 	rootFlufikCommand.Command.AddCommand(
 		buildFlufikCommand.command,
 		pushFlufikCommand.command,
-		genFlufikPgpCommand.command,
+		menuFlufikPgpCommand.commnad,
 	)
 	return rootFlufikCommand
 }

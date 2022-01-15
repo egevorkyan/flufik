@@ -3,8 +3,8 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
-  VERSION: 0.1
-  RELEASE: 3
+  VERSION: 0.2
+  RELEASE: a4700aa
 
 
 functions:
@@ -13,11 +13,11 @@ functions:
     run:
       - $(prepare-env)
       - $(build-linux)
-      - $(build-mac)
+      #- $(build-mac)
       - $(build-pkg)
-      - $(zip)
-      - $(tar)
-      - mv flufik-bins/darwin/flufik /usr/local/bin/flufik
+      #- $(zip)
+      #- $(tar)
+      #- mv flufik-bins/darwin/flufik /usr/local/bin/flufik
       - rm -rf flufik-bins
       - rm -rf temp
       - rm -rf .env

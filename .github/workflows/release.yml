@@ -42,7 +42,7 @@ jobs:
           APP_UPDATE: 5
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}
+          automatic_release_tag: ${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}
           prerelease: false
   release-matrix:
     name: Release flufik
@@ -74,10 +74,10 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: 1.17
-          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}"
+          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}"
           project_path: "./cmd/main"
           binary_name: "flufik"
           executable_compression: upx
           overwrite: TRUE
           sha256sum: TRUE
-          release_tag: ${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}
+          release_tag: ${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}

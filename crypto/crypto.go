@@ -11,14 +11,15 @@ import (
 const (
 	DEFAULTKEYTYPE = "rsa"
 	DEFAULTKEYBITS = 4096
-	//EXTENSION      = "pgp"
-	PRIVATEKEY    = "_priv"
-	PUBLICKEY     = "_pub"
-	PRIVATEKEYPWD = "_pwd"
-	DEFAULTPWDLEN = 15
-	DEFAULTPWDNUM = 5
-	DEFAULTPWDSYM = 4
-	DEFAULTPWDCAP = 3
+	EXTENSION      = "pgp"
+	PWDEXTENSION   = "txt"
+	PRIVATEKEY     = "_priv"
+	PUBLICKEY      = "_pub"
+	PRIVATEKEYPWD  = "_pwd"
+	DEFAULTPWDLEN  = 15
+	DEFAULTPWDNUM  = 5
+	DEFAULTPWDSYM  = 4
+	DEFAULTPWDCAP  = 3
 )
 
 type FlufikPGP struct {
@@ -89,3 +90,15 @@ func GenerateKey(name, email, comment, keyType string, bits int) error {
 	}
 	return nil
 }
+
+//This function will be completely decommissioned
+/*func (f *FlufikPGP) SaveKeys(privName, pubName, ext string) error {
+	privateKeyPath, publicKeyPath := core.FlufikKeyFileName(privName, pubName, ext)
+	if err := ioutil.WriteFile(privateKeyPath, []byte(f.privateKey), os.ModePerm); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(publicKeyPath, []byte(f.publicKey), os.ModePerm); err != nil {
+		return err
+	}
+	return nil
+}*/

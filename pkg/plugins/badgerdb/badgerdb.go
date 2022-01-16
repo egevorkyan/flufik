@@ -50,6 +50,18 @@ func (b *FlufikBadger) Get(k string) ([]byte, error) {
 	return data, nil
 }
 
+func (b *FlufikBadger) Remove(k string) error {
+	txn := b.badgerDB.NewTransaction(true)
+	defer txn.Discard()
+	if err := txn.Delete([]byte(k)); err != nil {
+		return err
+	}
+	if err := txn.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (b *FlufikBadger) Close() {
 	b.badgerDB.Close()
 }

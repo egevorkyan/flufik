@@ -3,8 +3,8 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
-  VERSION: 0.2
-  RELEASE: 6
+  VERSION: 0.2.6
+  RELEASE: 1
 
 
 functions:

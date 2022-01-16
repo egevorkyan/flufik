@@ -76,29 +76,9 @@ func GenerateKey(name, email, comment, keyType string, bits int) error {
 
 	pgp := NewPGP(name, email, comment, keyType, passPhrase, bits)
 
-	//Commented section stores keys to files, soon will be decommissioned
-	//privateKeyName := fmt.Sprintf("%s-%s", name, "priv")
-	//publicKeyName := fmt.Sprintf("%s-%s", name, "pub")
-
-	//if err := pgp.SaveKeys(privateKeyName, publicKeyName, EXTENSION); err != nil {
-	//	return err
-	//}
-
 	//Saving private/public/passphrase keys in database
 	if err := pgp.StoreKeysToDb(name); err != nil {
 		return err
 	}
 	return nil
 }
-
-//This function will be completely decommissioned
-/*func (f *FlufikPGP) SaveKeys(privName, pubName, ext string) error {
-	privateKeyPath, publicKeyPath := core.FlufikKeyFileName(privName, pubName, ext)
-	if err := ioutil.WriteFile(privateKeyPath, []byte(f.privateKey), os.ModePerm); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(publicKeyPath, []byte(f.publicKey), os.ModePerm); err != nil {
-		return err
-	}
-	return nil
-}*/

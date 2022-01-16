@@ -13,11 +13,11 @@ jobs:
           echo "Done!"
       - uses: "marvinpinto/action-automatic-releases@latest"
         env:
-          APP_VERSION: 0.2
-          APP_UPDATE: 6
+          APP_VERSION: 0.2.7
+          APP_UPDATE: 1
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}
+          automatic_release_tag: ${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}
           prerelease: false
   release-matrix:
     name: Release flufik
@@ -42,17 +42,17 @@ jobs:
         run: echo APP_BUILD=$(echo ${GITHUB_SHA} | cut -c1-7 ) >> ${GITHUB_ENV}
       - uses: wangyoucao577/go-release-action@v1.22
         env:
-          APP_VERSION: 0.2
-          APP_UPDATE: 6
+          APP_VERSION: 0.2.7
+          APP_UPDATE: 1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: 1.17
-          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}"
+          ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}"
           project_path: "./cmd/main"
           binary_name: "flufik"
           executable_compression: upx
           overwrite: TRUE
           sha256sum: TRUE
-          release_tag: ${{ env.APP_VERSION }}.${{ env.APP_UPDATE }}
+          release_tag: ${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}

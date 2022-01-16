@@ -102,7 +102,7 @@ func (flufikRpm *FlufikRPMBuilder) FileName() (string, error) {
 
 	release := ""
 	if flufikMeta.Release != "" {
-		release = "." + flufikMeta.Release
+		release = "-" + flufikMeta.Release
 	}
 
 	arch := "noarch"
@@ -110,7 +110,7 @@ func (flufikRpm *FlufikRPMBuilder) FileName() (string, error) {
 		arch = flufikMeta.Arch
 	}
 
-	return fmt.Sprintf("%s-%s-%s.%s.rpm", flufikMeta.Name, flufikMeta.Version, release, arch), nil
+	return fmt.Sprintf("%s-%s%s.%s.rpm", flufikMeta.Name, flufikMeta.Version, release, arch), nil
 }
 
 func (flufikRpm *FlufikRPMBuilder) Build(writer io.Writer) error {

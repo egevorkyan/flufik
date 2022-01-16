@@ -1,6 +1,7 @@
 package command
 
 import (
+	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/pkg/logging"
@@ -28,6 +29,8 @@ func NewPgpFlufikSaveCommand() *PgpFlufikDumpCommand {
 
 func (c *PgpFlufikDumpCommand) Run(command *cobra.Command, args []string) {
 	if err := crypto.SavePgpKeyToFile(c.pgpKeyName, c.location); err != nil {
-		logging.ErrorHandler("fatal: %w", err)
+		logging.ErrorHandler("info: ", err)
+	} else {
+		logging.ErrorHandler("info: ", fmt.Errorf("successfully saved"))
 	}
 }

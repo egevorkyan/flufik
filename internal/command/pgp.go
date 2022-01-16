@@ -16,10 +16,12 @@ func NewFlufikPgp() *FlufikPgpCmd {
 	pgpGen := NewFlufikPgpGenerateCommand()
 	pgpSave := NewPgpFlufikSaveCommand()
 	pgpImport := NewFlufikImportPgpKey()
+	pgpRemove := NewPgpFlufikRemoveCommand()
 	c.commnad.AddCommand(
 		pgpGen.command,
 		pgpSave.command,
 		pgpImport.command,
+		pgpRemove.command,
 	)
 	return c
 }

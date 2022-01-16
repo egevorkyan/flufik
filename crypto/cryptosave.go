@@ -28,21 +28,21 @@ func SavePgpKeyToFile(pgpKeyName string, location string) error {
 	if err != nil {
 		return err
 	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.pgp", pgpKeyName, PRIVATEKEY)), privateKey); err != nil {
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEY, EXTENSION)), privateKey); err != nil {
 		return err
 	}
 	publicKey, err := db.Get(fmt.Sprintf("%s%s", pgpKeyName, PUBLICKEY))
 	if err != nil {
 		return err
 	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.pgp", pgpKeyName, PUBLICKEY)), publicKey); err != nil {
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PUBLICKEY, EXTENSION)), publicKey); err != nil {
 		return err
 	}
 	passPhrase, err := db.Get(fmt.Sprintf("%s%s", pgpKeyName, PRIVATEKEYPWD))
 	if err != nil {
 		return err
 	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.txt", pgpKeyName, PRIVATEKEYPWD)), passPhrase); err != nil {
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEYPWD, PWDEXTENSION)), passPhrase); err != nil {
 		return err
 	}
 	db.Close()
@@ -90,13 +90,35 @@ func readFile(path string) ([]byte, error) {
 	return encoded, nil
 }
 
-func (f *FlufikPGP) SaveKeys(privName, pubName, ext string) error {
-	privateKeyPath, publicKeyPath := core.FlufikKeyFileName(privName, pubName, ext)
-	if err := ioutil.WriteFile(privateKeyPath, []byte(f.privateKey), os.ModePerm); err != nil {
+func RemovePgpKeyFromDB(pgpName string) error {
+	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
+	privateKey := fmt.Sprintf("%s%s", pgpName, PRIVATEKEY)
+	publicKey := fmt.Sprintf("%s%s", pgpName, PUBLICKEY)
+	pwdPrivate := fmt.Sprintf("%s%s", pgpName, PRIVATEKEYPWD)
+	_, err := db.Get(privateKey)
+	if err != nil {
 		return err
+	} else {
+		if err = db.Remove(privateKey); err != nil {
+			return err
+		}
 	}
-	if err := ioutil.WriteFile(publicKeyPath, []byte(f.publicKey), os.ModePerm); err != nil {
+	_, err = db.Get(publicKey)
+	if err != nil {
 		return err
+	} else {
+		if err := db.Remove(publicKey); err != nil {
+			return err
+		}
 	}
+	_, err = db.Get(pwdPrivate)
+	if err != nil {
+		return err
+	} else {
+		if err := db.Remove(pwdPrivate); err != nil {
+			return err
+		}
+	}
+	db.Close()
 	return nil
 }

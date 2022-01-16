@@ -36,3 +36,8 @@ flufik pgp import -n demo -s 'demo123' -p /demo/bla-priv.pgp -c /demo/bla-pub.pg
 ```
 Import will import key to flufik than n config file is not required to mention pgp file name and passphrase
 only name of key is required everything else flufik will gather automatically.
+
+# Usage to remove wrong or not used pgp key
+```shell
+flufik pgp remove -n <keyname>
+```

@@ -1,19 +1,9 @@
-package core
+package crypto
 
 import (
 	"fmt"
 	"testing"
 )
-
-func TestOpenFile(t *testing.T) {
-	path := ""
-	fileName := "parsed.txt"
-	f, err := OpenFile(fileName, path)
-	if err != nil {
-		t.Errorf("failed %w", err)
-	}
-	fmt.Println(f.Name())
-}
 
 func TestCheckSum(t *testing.T) {
 	path := ""

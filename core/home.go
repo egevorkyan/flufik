@@ -8,14 +8,16 @@ import (
 	"path/filepath"
 )
 
-const FLUFIKHOME = ".flufik"
-const FLUFIKKEYSDIR = "keys"
-const FLUFIKKEYSDB = "keys"
-const FLUFIKLOGGINGDIR = "logs"
-const FLUFIKPKGCONFIGDIR = "configs" //yaml configuration file or template, to build based on that package
-const FLUFIKPKGOUTPUTDIR = "output"
-const FLUFIKLOGGINGFILE = "all.log"
-const FLUFIKSERVICECONFIGDIR = "service"
+const (
+	FLUFIKHOME             = ".flufik"
+	FLUFIKKEYSDIR          = "keys"
+	FLUFIKKEYSDB           = "keys"
+	FLUFIKLOGGINGDIR       = "logs"
+	FLUFIKPKGCONFIGDIR     = "configs" //yaml configuration file or template, to build based on that package
+	FLUFIKPKGOUTPUTDIR     = "output"
+	FLUFIKLOGGINGFILE      = "all.log"
+	FLUFIKSERVICECONFIGDIR = "service"
+)
 
 func Home() string {
 	u, err := user.Current()

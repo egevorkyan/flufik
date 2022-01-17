@@ -3,6 +3,7 @@ package jfrog
 import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
+	"github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"net/http"
 )
@@ -34,7 +35,7 @@ func (j *JFrog) FlufikJFrogUpload() error {
 	} else {
 		return fmt.Errorf("failure: %s", pkg)
 	}
-	checksum, err := core.CheckSum(pkgFile.Name())
+	checksum, err := crypto.CheckSum(pkgFile.Name())
 	if err != nil {
 		return fmt.Errorf("no checksum", err)
 	}

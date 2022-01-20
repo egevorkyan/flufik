@@ -42,8 +42,8 @@ jobs:
         run: echo APP_BUILD=$(echo ${GITHUB_SHA} | cut -c1-7 ) >> ${GITHUB_ENV}
       - uses: wangyoucao577/go-release-action@v1.22
         env:
-          APP_VERSION: 0.2.7
-          APP_UPDATE: 2
+          APP_VERSION: 0.3.0
+          APP_UPDATE: 1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}

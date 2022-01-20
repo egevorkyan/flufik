@@ -5,7 +5,9 @@ import (
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -20,6 +22,10 @@ const (
 	DEFAULTPWDNUM  = 5
 	DEFAULTPWDSYM  = 4
 	DEFAULTPWDCAP  = 3
+	DEFAULTTKNLEN  = 20
+	DEFAULTTKNNUM  = 10
+	DEFAULTTKNSYM  = 0
+	DEFAULTTKNCAP  = 8
 )
 
 type FlufikPGP struct {
@@ -77,8 +83,39 @@ func GenerateKey(name, email, comment, keyType string, bits int) error {
 	pgp := NewPGP(name, email, comment, keyType, passPhrase, bits)
 
 	//Saving private/public/passphrase keys in database
-	if err := pgp.StoreKeysToDb(name); err != nil {
+	if err := pgp.StoreKeysToDb(name, pgp.publicKey, pgp.privateKey, pgp.passPhrase); err != nil {
 		return err
 	}
 	return nil
+}
+
+func CreateApiKey() error {
+	token := PasswordGenerator(DEFAULTTKNLEN, DEFAULTTKNSYM, DEFAULTTKNNUM, DEFAULTTKNCAP)
+	db := simpledb.NewSimpleDB()
+	encodedToken := string(B64Encoder(token))
+	if err := db.Insert("apikey", "", "", encodedToken); err != nil {
+		return err
+	}
+	if err := SaveToFile(filepath.Join(core.FlufikServiceConfigurationHome(), "repo-token.txt"), B64Encoder(token)); err != nil {
+		return err
+	}
+	db.CloseDb()
+	return nil
+}
+
+// Gets Api key for authentication
+func GetApiKey() (string, error) {
+	db := simpledb.NewSimpleDB()
+	var decodedKey string
+	key, err := db.Get("apikey")
+	if err != nil {
+		return decodedKey, err
+	}
+	decodedByte, err := B64Decoder(string(key.TokenValue))
+	if err != nil {
+		return decodedKey, err
+	}
+	decodedKey = string(decodedByte)
+	db.CloseDb()
+	return decodedKey, nil
 }

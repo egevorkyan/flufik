@@ -3,8 +3,12 @@
 env:
   CGO_ENABLED: 0
   GOARCH: amd64
-  VERSION: 0.2.6
+  VERSION: 0.3.0
   RELEASE: 1
+
+  REPO_NAME: eduard1001171985
+  IMG_NAME: flufik
+  FLUFIK_PACKAGE: flufik
 
 
 functions:
@@ -27,7 +31,7 @@ functions:
     env:
       GOOS: linux
     run:
-      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o flufik-bins/linux/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o Docker/flufik cmd/main/main.go
   - name: build-mac
     description: build flufik tool for MacOS
     env:
@@ -63,3 +67,13 @@ functions:
       - flufik build -c temp/config-deb.yaml -p deb
       #- flufik push -d ${RELEASE_RPM} -b flufik-${MAJORVERSION}-${VERSION}.${RELEASE_RPM}.${ARCH}.rpm -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_RPM} -u ${JFROG_REPO_USER}
       #- flufik push -a ${ARCH_DEB} -d ${DIST} -b flufik_${MAJORVERSION}-${VERSION}_${ARCH_DEB}.deb -p ${JFROG_REPO_PWD} -m temp -w ${JFROG_REPO} -l ${JFROG_REPO_DEB} -u ${JFROG_REPO_USER}
+
+  - name: build-image
+    description: builds and push docker image
+    run:
+      - art run $(build-linux)
+      - docker build --squash -f Docker/Dockerfile -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} .
+      - docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
+        #- docker push ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF}
+        #- docker push ${REPO_NAME}/${IMG_NAME}:latest
+      - rm Docker/flufik

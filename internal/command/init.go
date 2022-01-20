@@ -2,7 +2,9 @@ package command
 
 import (
 	"github.com/egevorkyan/flufik/core"
+	"github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"log"
 	"os"
 )
@@ -53,4 +55,30 @@ func flufikHomeInit() {
 			logging.ErrorHandler("can not create output folder", err)
 		}
 	}
+
+	if err = initDB(); err != nil {
+		logging.ErrorHandler("fatal: ", err)
+	}
+
+	if err = initializeKeys(); err != nil {
+		logging.ErrorHandler("warning: ", err)
+	}
+
+}
+
+func initDB() error {
+	db := simpledb.NewSimpleDB()
+	if err := db.CreateTable(); err != nil {
+		return err
+	}
+	db.CloseDb()
+	return nil
+}
+
+func initializeKeys() error {
+	_, err := crypto.GetApiKey()
+	if err = crypto.CreateApiKey(); err != nil {
+		return err
+	}
+	return nil
 }

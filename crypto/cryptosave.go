@@ -2,50 +2,53 @@ package crypto
 
 import (
 	"fmt"
-	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/pkg/plugins/badgerdb"
+	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
-func (f *FlufikPGP) StoreKeysToDb(keyName string) error {
-	var kvdb = make(map[string]string)
-	kvdb[fmt.Sprintf("%s%s", keyName, PRIVATEKEY)] = string(B64Encoder(f.privateKey))
-	kvdb[fmt.Sprintf("%s%s", keyName, PUBLICKEY)] = string(B64Encoder(f.publicKey))
-	kvdb[fmt.Sprintf("%s%s", keyName, PRIVATEKEYPWD)] = string(B64Encoder(f.passPhrase))
-	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
-	if err := db.UpdateDb(kvdb); err != nil {
+func (f *FlufikPGP) StoreKeysToDb(keyName string, publicKey string, privateKey string, pwd string) error {
+	encodedPrivateKey := string(B64Encoder(privateKey))
+	encodedPublicKey := string(B64Encoder(publicKey))
+	encodedPwd := string(B64Encoder(pwd))
+	db := simpledb.NewSimpleDB()
+	if err := db.Insert(keyName, encodedPrivateKey, encodedPublicKey, encodedPwd); err != nil {
 		return err
 	}
-	db.Close()
+	db.CloseDb()
 	return nil
 }
 
 func SavePgpKeyToFile(pgpKeyName string, location string) error {
-	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
-	privateKey, err := db.Get(fmt.Sprintf("%s%s", pgpKeyName, PRIVATEKEY))
+	db := simpledb.NewSimpleDB()
+	value, err := db.Get(pgpKeyName)
 	if err != nil {
 		return err
 	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEY, EXTENSION)), privateKey); err != nil {
+	db.CloseDb()
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEY, EXTENSION)), []byte(value.PrivateKeyValue)); err != nil {
 		return err
 	}
-	publicKey, err := db.Get(fmt.Sprintf("%s%s", pgpKeyName, PUBLICKEY))
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PUBLICKEY, EXTENSION)), []byte(value.PublicKeyValue)); err != nil {
+		return err
+	}
+	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEYPWD, PWDEXTENSION)), []byte(value.TokenValue)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func PublishPublicPGP(filePath string, keyName string) error {
+	db := simpledb.NewSimpleDB()
+	publicKey, err := db.Get(keyName)
+	db.CloseDb()
 	if err != nil {
 		return err
 	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PUBLICKEY, EXTENSION)), publicKey); err != nil {
+	if err = SaveToFile(filepath.Join(filePath, fmt.Sprintf("%s%s.%s", keyName, PUBLICKEY, EXTENSION)), []byte(publicKey.PublicKeyValue)); err != nil {
 		return err
 	}
-	passPhrase, err := db.Get(fmt.Sprintf("%s%s", pgpKeyName, PRIVATEKEYPWD))
-	if err != nil {
-		return err
-	}
-	if err = SaveToFile(filepath.Join(location, fmt.Sprintf("%s%s.%s", pgpKeyName, PRIVATEKEYPWD, PWDEXTENSION)), passPhrase); err != nil {
-		return err
-	}
-	db.Close()
 	return nil
 }
 
@@ -62,23 +65,22 @@ func SaveToFile(fileName string, encoded []byte) error {
 }
 
 func ImportPgpKeys(name, private, public, passPhrase string) error {
-	var kvdb = make(map[string]string)
-	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
+	db := simpledb.NewSimpleDB()
 	privateEncoded, err := readFile(private)
 	if err != nil {
 		return err
 	}
-	kvdb[fmt.Sprintf("%s%s", name, PRIVATEKEY)] = string(privateEncoded)
+	privateKeyEncoded := string(privateEncoded)
 	publicEncoded, err := readFile(public)
 	if err != nil {
 		return err
 	}
-	kvdb[fmt.Sprintf("%s%s", name, PUBLICKEY)] = string(publicEncoded)
-	kvdb[fmt.Sprintf("%s%s", name, PRIVATEKEYPWD)] = string(B64Encoder(passPhrase))
-	if err = db.UpdateDb(kvdb); err != nil {
+	publicKeyEncoded := string(publicEncoded)
+	privatePwd := string(B64Encoder(passPhrase))
+	if err = db.Insert(name, privateKeyEncoded, publicKeyEncoded, privatePwd); err != nil {
 		return err
 	}
-	db.Close()
+	db.CloseDb()
 	return nil
 }
 func readFile(path string) ([]byte, error) {
@@ -91,34 +93,10 @@ func readFile(path string) ([]byte, error) {
 }
 
 func RemovePgpKeyFromDB(pgpName string) error {
-	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
-	privateKey := fmt.Sprintf("%s%s", pgpName, PRIVATEKEY)
-	publicKey := fmt.Sprintf("%s%s", pgpName, PUBLICKEY)
-	pwdPrivate := fmt.Sprintf("%s%s", pgpName, PRIVATEKEYPWD)
-	_, err := db.Get(privateKey)
-	if err != nil {
+	db := simpledb.NewSimpleDB()
+	if err := db.Delete(pgpName); err != nil {
 		return err
-	} else {
-		if err = db.Remove(privateKey); err != nil {
-			return err
-		}
 	}
-	_, err = db.Get(publicKey)
-	if err != nil {
-		return err
-	} else {
-		if err := db.Remove(publicKey); err != nil {
-			return err
-		}
-	}
-	_, err = db.Get(pwdPrivate)
-	if err != nil {
-		return err
-	} else {
-		if err := db.Remove(pwdPrivate); err != nil {
-			return err
-		}
-	}
-	db.Close()
+	db.CloseDb()
 	return nil
 }

@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
-	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/pkg/plugins/badgerdb"
+	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"io"
 	"unicode"
 )
@@ -48,23 +47,23 @@ func FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error) {
 }
 
 func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
-	db := badgerdb.NewFlufikBadgerDB(core.FlufikKeyDbPath())
-	privateEncoded, err := db.Get(fmt.Sprintf("%s%s", privateKey, PRIVATEKEY))
+	db := simpledb.NewSimpleDB()
+	privateEncoded, err := db.Get(privateKey)
 	if err != nil {
 		return nil, err
 	}
-	decodedPrivateKey, err := B64Decoder(string(privateEncoded))
+	db.CloseDb()
+	priv := privateEncoded.PrivateKeyValue
+	pwd := privateEncoded.TokenValue
+	decodedPrivateKey, err := B64Decoder(priv)
 	if err != nil {
 		return nil, err
 	}
-	passPhraseEncoded, err := db.Get(fmt.Sprintf("%s%s", privateKey, PRIVATEKEYPWD))
+	passPhraseDecoded, err := B64Decoder(pwd)
 	if err != nil {
 		return nil, err
 	}
-	passPhraseDecoded, err := B64Decoder(string(passPhraseEncoded))
-	if err != nil {
-		return nil, err
-	}
+
 	var entityList openpgp.EntityList
 
 	if FlufikCheckPGPKeyType(decodedPrivateKey) {
@@ -101,19 +100,18 @@ func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
 		}
 
 	}
-	db.Close()
-
 	return key, nil
 }
 
 func FlufikDecryptPrivateKey(keyName, passPhrase, dbName string) (*openpgp.Entity, error) {
-	db := badgerdb.NewFlufikBadgerDB(dbName)
+	db := simpledb.NewSimpleDB()
 	encodedPrivateKey, err := db.Get(keyName)
 	if err != nil {
 		return nil, fmt.Errorf("fatal: %w", err)
 	}
+	db.CloseDb()
 
-	privateKey, err := B64Decoder(string(encodedPrivateKey))
+	privateKey, err := B64Decoder(encodedPrivateKey.PrivateKeyValue)
 	if err != nil {
 		return nil, fmt.Errorf("fatal: %w", err)
 	}
@@ -156,7 +154,6 @@ func FlufikDecryptPrivateKey(keyName, passPhrase, dbName string) (*openpgp.Entit
 		}
 
 	}
-	db.Close()
 
 	return key, nil
 }

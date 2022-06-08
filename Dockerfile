@@ -1,7 +1,7 @@
 FROM golang:1.18 AS builder
 
 RUN mkdir /app
-ADD ../Docker /app
+ADD . /app
 WORKDIR /app
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=0.3.0-4'"-o flufik cmd/main/main.go

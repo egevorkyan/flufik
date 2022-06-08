@@ -14,7 +14,7 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         env:
           APP_VERSION: 0.3.0
-          APP_UPDATE: 2
+          APP_UPDATE: 3
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}
@@ -43,12 +43,12 @@ jobs:
       - uses: wangyoucao577/go-release-action@v1.22
         env:
           APP_VERSION: 0.3.0
-          APP_UPDATE: 2
+          APP_UPDATE: 3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: 1.17
+          goversion: 1.18
           ldflags: -X "github.com/egevorkyan/flufik/core.Version=${{ env.APP_VERSION }}-${{ env.APP_UPDATE }}"
           project_path: "./cmd/main"
           binary_name: "flufik"

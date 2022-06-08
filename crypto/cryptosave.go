@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"fmt"
+	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"io/ioutil"
 	"os"
@@ -12,8 +13,8 @@ func (f *FlufikPGP) StoreKeysToDb(keyName string, publicKey string, privateKey s
 	encodedPrivateKey := string(B64Encoder(privateKey))
 	encodedPublicKey := string(B64Encoder(publicKey))
 	encodedPwd := string(B64Encoder(pwd))
-	db := simpledb.NewSimpleDB()
-	if err := db.Insert(keyName, encodedPrivateKey, encodedPublicKey, encodedPwd); err != nil {
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	if err := db.Insert(core.FLUFIKKEYDBTYPE, keyName, encodedPrivateKey, encodedPublicKey, encodedPwd); err != nil {
 		return err
 	}
 	db.CloseDb()
@@ -21,8 +22,8 @@ func (f *FlufikPGP) StoreKeysToDb(keyName string, publicKey string, privateKey s
 }
 
 func SavePgpKeyToFile(pgpKeyName string, location string) error {
-	db := simpledb.NewSimpleDB()
-	value, err := db.Get(pgpKeyName)
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	value, err := db.GetKey(pgpKeyName)
 	if err != nil {
 		return err
 	}
@@ -40,8 +41,8 @@ func SavePgpKeyToFile(pgpKeyName string, location string) error {
 }
 
 func PublishPublicPGP(filePath string, keyName string) error {
-	db := simpledb.NewSimpleDB()
-	publicKey, err := db.Get(keyName)
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	publicKey, err := db.GetKey(keyName)
 	db.CloseDb()
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func SaveToFile(fileName string, encoded []byte) error {
 }
 
 func ImportPgpKeys(name, private, public, passPhrase string) error {
-	db := simpledb.NewSimpleDB()
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
 	privateEncoded, err := readFile(private)
 	if err != nil {
 		return err
@@ -93,7 +94,7 @@ func readFile(path string) ([]byte, error) {
 }
 
 func RemovePgpKeyFromDB(pgpName string) error {
-	db := simpledb.NewSimpleDB()
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
 	if err := db.Delete(pgpName); err != nil {
 		return err
 	}

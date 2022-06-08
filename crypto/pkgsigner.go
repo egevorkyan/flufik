@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
 	"io"
 	"unicode"
@@ -47,8 +48,8 @@ func FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error) {
 }
 
 func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
-	db := simpledb.NewSimpleDB()
-	privateEncoded, err := db.Get(privateKey)
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	privateEncoded, err := db.GetKey(privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +105,8 @@ func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
 }
 
 func FlufikDecryptPrivateKey(keyName, passPhrase, dbName string) (*openpgp.Entity, error) {
-	db := simpledb.NewSimpleDB()
-	encodedPrivateKey, err := db.Get(keyName)
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	encodedPrivateKey, err := db.GetKey(keyName)
 	if err != nil {
 		return nil, fmt.Errorf("fatal: %w", err)
 	}

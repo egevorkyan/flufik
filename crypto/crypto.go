@@ -91,9 +91,9 @@ func GenerateKey(name, email, comment, keyType string, bits int) error {
 
 func CreateApiKey() error {
 	token := PasswordGenerator(DEFAULTTKNLEN, DEFAULTTKNSYM, DEFAULTTKNNUM, DEFAULTTKNCAP)
-	db := simpledb.NewSimpleDB()
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
 	encodedToken := string(B64Encoder(token))
-	if err := db.Insert("apikey", "", "", encodedToken); err != nil {
+	if err := db.Insert(core.FLUFIKKEYDBTYPE, "apikey", "", "", encodedToken); err != nil {
 		return err
 	}
 	if err := SaveToFile(filepath.Join(core.FlufikServiceConfigurationHome(), "repo-token.txt"), B64Encoder(token)); err != nil {
@@ -105,9 +105,9 @@ func CreateApiKey() error {
 
 // Gets Api key for authentication
 func GetApiKey() (string, error) {
-	db := simpledb.NewSimpleDB()
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
 	var decodedKey string
-	key, err := db.Get("apikey")
+	key, err := db.GetKey("apikey")
 	if err != nil {
 		return decodedKey, err
 	}

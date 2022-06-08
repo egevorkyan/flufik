@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type deleteObject struct {
@@ -117,6 +118,22 @@ func DeleteHandler(serviceConfig *debrepository.ServiceConfigBuilder) http.Handl
 			return
 		}
 
+	})
+}
+
+//Universal applications' repository handlers
+func GetApp() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.Error(w, "method not supported", http.StatusMethodNotAllowed)
+			return
+		}
+		_, err := io.WriteString(w, runtime.GOOS)
+		if err != nil {
+			httpErrorFormat(w, "failed to show: %s", err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	})
 }
 

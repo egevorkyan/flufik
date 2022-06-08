@@ -67,8 +67,11 @@ func flufikHomeInit() {
 }
 
 func initDB() error {
-	db := simpledb.NewSimpleDB()
-	if err := db.CreateTable(); err != nil {
+	db := simpledb.NewSimpleDB(core.FlufikDbPath())
+	if err := db.CreateTable(core.FLUFIKKEYDBTYPE); err != nil {
+		return err
+	}
+	if err := db.CreateTable(core.FLUFIKAPPDBTYPE); err != nil {
 		return err
 	}
 	db.CloseDb()

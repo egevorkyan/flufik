@@ -72,7 +72,7 @@ functions:
     description: builds and push docker image
     run:
       - art run $(build-linux)
-      - docker build --squash -f Docker/Dockerfile -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} .
+      - docker build -f Docker/Dockerfile -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} .
       - docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
         #- docker push ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF}
         #- docker push ${REPO_NAME}/${IMG_NAME}:latest

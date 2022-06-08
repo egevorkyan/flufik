@@ -11,13 +11,16 @@ import (
 const (
 	FLUFIKHOME             = ".flufik"
 	FLUFIKKEYSDIR          = "keys"
-	FLUFIKKEYSDB           = "kvdb.db"
+	FLUFIKDB               = "flufik.db"
 	FLUFIKLOGGINGDIR       = "logs"
 	FLUFIKPKGCONFIGDIR     = "configs" //yaml configuration file or template, to build based on that package
 	FLUFIKPKGOUTPUTDIR     = "output"
 	FLUFIKLOGGINGFILE      = "all.log"
 	FLUFIKSERVICECONFIGDIR = "service"
 	FLUFIKSERVICEWEB       = "flufikweb"
+	FLUFIKKEYDBTYPE        = "kvdb"
+	FLUFIKAPPDBTYPE        = "app"
+	FLUFIKAPPSTORAGE       = "apps"
 )
 
 func Home() string {
@@ -60,8 +63,8 @@ func FlufikKeyFilePath(name string) string {
 	return filepath.Join(FlufikKeysHome(), name)
 }
 
-func FlufikKeyDbPath() string {
-	return filepath.Join(FlufikKeysHome(), FLUFIKKEYSDB)
+func FlufikDbPath() string {
+	return filepath.Join(FlufikKeysHome(), FLUFIKDB)
 }
 
 func FlufikPkgFilePath(pkg, path string) string {
@@ -79,4 +82,8 @@ func FlufikCurrentDir() string {
 
 func FlufikServiceWebHome() string {
 	return filepath.Join("/opt/flufik", FLUFIKSERVICEWEB)
+}
+
+func FlufikAppsHome() string {
+	return filepath.Join("/opt/flufik", FLUFIKAPPSTORAGE)
 }

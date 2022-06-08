@@ -58,6 +58,7 @@ func startService() error {
 	http.Handle("/public", http.StripPrefix("/public", http.FileServer(http.Dir(core.FlufikServiceWebHome()))))
 	http.Handle("/upload", repohttp.UploadHandler(serviceConfig))
 	http.Handle("/delete", repohttp.DeleteHandler(serviceConfig))
+	http.Handle("/unirepo", repohttp.GetApp())
 	if serviceConfig.EnableSSL {
 		if err := http.ListenAndServeTLS(":"+serviceConfig.ListenPort, filepath.Join(core.FlufikServiceConfigurationHome(), "server.crt"), filepath.Join(core.FlufikServiceConfigurationHome(), "server.key"), nil); err != nil {
 			return err

@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi:8.5-214
+FROM registry.access.redhat.com/ubi8/ubi:8.6-754
 
 LABEL maintainer="egevorkyan@outlook.com"
 

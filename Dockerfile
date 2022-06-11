@@ -7,7 +7,7 @@ WORKDIR /app
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=0.3.0-5'" -o flufik cmd/main/main.go
 
 
-FROM registry.access.redhat.com/ubi9/ubi:latest AS production
+FROM registry.access.redhat.com/ubi8/ubi:8.6-754 AS production
 
 LABEL maintainer="egevorkyan@outlook.com"
 

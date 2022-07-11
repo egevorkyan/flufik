@@ -2,8 +2,8 @@
 
 env:
   CGO_ENABLED: 0
-  GOARCH: amd64
-  VERSION: 0.3.0
+  GOARCH: arm64
+  VERSION: 0.4.0
   RELEASE: 1
 
   REPO_NAME: eduard1001171985

@@ -13,6 +13,7 @@ import (
 	"github.com/blakesmith/ar"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/pkg/config"
 	"github.com/fsnotify/fsnotify"
 	"github.com/ulikunitz/xz/lzma"
 	"io"
@@ -34,16 +35,28 @@ type Compression int
 const (
 	LZMA Compression = iota
 	GZIP
+	aptRepos = "dists"
 )
 
-func (s *ServiceConfigBuilder) ArchPath(distro string, section string, arch string) string {
-	return filepath.Join(core.FlufikServiceWebHome(), "dists", distro, section, "binary-"+arch)
+type DebRepository struct {
+	serviceConfig    *config.ServiceConfigBuilder
+	directoryWatcher *fsnotify.Watcher
 }
 
-func (s *ServiceConfigBuilder) CreateDirectories() error {
-	for _, distro := range s.DistroNames {
-		for _, arch := range s.SupportArch {
-			for _, section := range s.Sections {
+func NewServiceConfiguration(config *config.ServiceConfigBuilder) *DebRepository {
+	return &DebRepository{
+		serviceConfig: config,
+	}
+}
+
+func (s *DebRepository) ArchPath(distro string, section string, arch string) string {
+	return filepath.Join(core.FlufikServiceWebHome(s.serviceConfig.RootRepoPath), aptRepos, distro, section, "binary-"+arch)
+}
+
+func (s *DebRepository) CreateDirectories() error {
+	for _, distro := range s.serviceConfig.DistroNames {
+		for _, arch := range s.serviceConfig.SupportArch {
+			for _, section := range s.serviceConfig.Sections {
 				if _, err := os.Stat(s.ArchPath(distro, section, arch)); err != nil {
 					if os.IsNotExist(err) {
 						if err = os.MkdirAll(s.ArchPath(distro, section, arch), 0755); err != nil {
@@ -53,7 +66,7 @@ func (s *ServiceConfigBuilder) CreateDirectories() error {
 						return fmt.Errorf("error inspecting %s (%s): %s", distro, arch, err)
 					}
 				}
-				if s.EnableDirectoryWatching {
+				if s.serviceConfig.EnableDirectoryWatching {
 					if err := s.directoryWatcher.Add(s.ArchPath(distro, section, arch)); err != nil {
 						return err
 					}
@@ -64,12 +77,12 @@ func (s *ServiceConfigBuilder) CreateDirectories() error {
 	return nil
 }
 
-func (s *ServiceConfigBuilder) RebuildRepoMetadata(filePath string) error {
+func (s *DebRepository) RebuildRepoMetadata(filePath string) error {
 	distroArch := destructPath(filePath)
 	if err := s.createPackageGz(distroArch[0], distroArch[1], distroArch[2]); err != nil {
 		return err
 	}
-	if s.EnableSigning {
+	if s.serviceConfig.EnableSigning {
 		if err := s.createRelease(distroArch[0]); err != nil {
 			return err
 		}
@@ -78,21 +91,41 @@ func (s *ServiceConfigBuilder) RebuildRepoMetadata(filePath string) error {
 	return nil
 }
 
-func (s *ServiceConfigBuilder) createRelease(distro string) error {
-	workingDirectory := filepath.Join(core.FlufikServiceWebHome(), "dists", distro)
+func (s *DebRepository) createRelease(distro string) error {
+	workingDirectory := filepath.Join(core.FlufikServiceWebHome(s.serviceConfig.RootRepoPath), aptRepos, distro)
 
 	outFile, err := os.Create(filepath.Join(workingDirectory, "Release"))
 	if err != nil {
 		return fmt.Errorf("failed to create Release: %s", err)
 	}
-	defer outFile.Close()
+	defer func(outFile *os.File) {
+		err = outFile.Close()
+		if err != nil {
+			return
+		}
+	}(outFile)
 
 	currentTime := time.Now().UTC()
-	fmt.Fprintf(outFile, "Suite: %s\n", distro)
-	fmt.Fprintf(outFile, "Codename: %s\n", distro)
-	fmt.Fprintf(outFile, "Components: %s\n", strings.Join(s.Sections, " "))
-	fmt.Fprintf(outFile, "Architectures: %s\n", strings.Join(s.SupportArch, " "))
-	fmt.Fprintf(outFile, "Date: %s\n", currentTime.Format("Mon, 02 Jan 2006 15:04:05 UTC"))
+	_, err = fmt.Fprintf(outFile, "Suite: %s\n", distro)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(outFile, "Codename: %s\n", distro)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(outFile, "Components: %s\n", strings.Join(s.serviceConfig.Sections, " "))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(outFile, "Architectures: %s\n", strings.Join(s.serviceConfig.SupportArch, " "))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(outFile, "Date: %s\n", currentTime.Format("Mon, 02 Jan 2006 15:04:05 UTC"))
+	if err != nil {
+		return err
+	}
 
 	var md5Sums strings.Builder
 	var sha1Sums strings.Builder
@@ -117,9 +150,18 @@ func (s *ServiceConfigBuilder) createRelease(distro string) error {
 			if _, err = io.Copy(io.MultiWriter(md5hash, sha1hash, sha256hash), f); err != nil {
 				return fmt.Errorf("error hashing file for release list: %s", err)
 			}
-			fmt.Fprintf(&md5Sums, " %s %d %s\n", hex.EncodeToString(md5hash.Sum(nil)), file.Size(), slashPath)
-			fmt.Fprintf(&sha1Sums, " %s %d %s\n", hex.EncodeToString(sha1hash.Sum(nil)), file.Size(), slashPath)
-			fmt.Fprintf(&sha256Sums, " %s %d %s\n", hex.EncodeToString(sha256hash.Sum(nil)), file.Size(), slashPath)
+			_, err = fmt.Fprintf(&md5Sums, " %s %d %s\n", hex.EncodeToString(md5hash.Sum(nil)), file.Size(), slashPath)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(&sha1Sums, " %s %d %s\n", hex.EncodeToString(sha1hash.Sum(nil)), file.Size(), slashPath)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(&sha256Sums, " %s %d %s\n", hex.EncodeToString(sha256hash.Sum(nil)), file.Size(), slashPath)
+			if err != nil {
+				return err
+			}
 
 			f = nil
 		}
@@ -130,21 +172,39 @@ func (s *ServiceConfigBuilder) createRelease(distro string) error {
 		return fmt.Errorf("error scaning for packages files: %s", err)
 	}
 
-	outFile.WriteString("MD5Sum:\n")
-	outFile.WriteString(md5Sums.String())
-	outFile.WriteString("SHA1:\n")
-	outFile.WriteString(sha1Sums.String())
-	outFile.WriteString("SHA256:\n")
-	outFile.WriteString(sha256Sums.String())
+	_, err = outFile.WriteString("MD5Sum:\n")
+	if err != nil {
+		return err
+	}
+	_, err = outFile.WriteString(md5Sums.String())
+	if err != nil {
+		return err
+	}
+	_, err = outFile.WriteString("SHA1:\n")
+	if err != nil {
+		return err
+	}
+	_, err = outFile.WriteString(sha1Sums.String())
+	if err != nil {
+		return err
+	}
+	_, err = outFile.WriteString("SHA256:\n")
+	if err != nil {
+		return err
+	}
+	_, err = outFile.WriteString(sha256Sums.String())
+	if err != nil {
+		return err
+	}
 
-	if err = crypto.SignRelease(s.PrivateKeyName, outFile.Name()); err != nil {
+	if err = crypto.SignRelease(s.serviceConfig.PrivateKeyName, outFile.Name()); err != nil {
 		return fmt.Errorf("error signing release file: %s", err)
 	}
 
 	return nil
 }
 
-func (s *ServiceConfigBuilder) createPackageGz(distro string, section string, arch string) error {
+func (s *DebRepository) createPackageGz(distro string, section string, arch string) error {
 	packageFile, err := os.Create(filepath.Join(s.ArchPath(distro, section, arch), "Packages"))
 	if err != nil {
 		return fmt.Errorf("failed to create Packages: %s", err)
@@ -173,14 +233,25 @@ func (s *ServiceConfigBuilder) createPackageGz(distro string, section string, ar
 				return err
 			}
 			packageBuffer.WriteString(tempControlData)
-			dir := filepath.ToSlash(filepath.Join("dists", distro, section, "binary-"+arch, debFile.Name()))
-			fmt.Fprintf(&packageBuffer, "Filename: %s\n", dir)
-			fmt.Fprintf(&packageBuffer, "Size: %d\n", debFile.Size())
+			dir := filepath.ToSlash(filepath.Join(aptRepos, distro, section, "binary-"+arch, debFile.Name()))
+			_, err = fmt.Fprintf(&packageBuffer, "Filename: %s\n", dir)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(&packageBuffer, "Size: %d\n", debFile.Size())
+			if err != nil {
+				return err
+			}
 			f, err := os.Open(debPath)
 			if err != nil {
 				log.Println("error opening deb file: ", err)
 			}
-			defer f.Close()
+			defer func(f *os.File) {
+				err = f.Close()
+				if err != nil {
+					return
+				}
+			}(f)
 
 			var (
 				md5hash    = md5.New()
@@ -191,13 +262,25 @@ func (s *ServiceConfigBuilder) createPackageGz(distro string, section string, ar
 			if err != nil {
 				return fmt.Errorf("error hashing file for packages file: %s", err)
 			}
-			fmt.Fprintf(&packageBuffer, "MD5sum: %s\n", hex.EncodeToString(md5hash.Sum(nil)))
-			fmt.Fprintf(&packageBuffer, "SHA1: %s\n", hex.EncodeToString(sha1hash.Sum(nil)))
-			fmt.Fprintf(&packageBuffer, "SHA256: %s\n", hex.EncodeToString(sha256hash.Sum(nil)))
+			_, err = fmt.Fprintf(&packageBuffer, "MD5sum: %s\n", hex.EncodeToString(md5hash.Sum(nil)))
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(&packageBuffer, "SHA1: %s\n", hex.EncodeToString(sha1hash.Sum(nil)))
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(&packageBuffer, "SHA256: %s\n", hex.EncodeToString(sha256hash.Sum(nil)))
+			if err != nil {
+				return err
+			}
 			if i != (len(dirList) - 1) {
 				packageBuffer.WriteString("\n\n")
 			}
-			writer.Write(packageBuffer.Bytes())
+			_, err = writer.Write(packageBuffer.Bytes())
+			if err != nil {
+				return err
+			}
 			f = nil
 		}
 	}
@@ -247,7 +330,10 @@ func inspectPackageControl(compression Compression, fileName bytes.Buffer) (stri
 		case tar.TypeReg:
 			switch name {
 			case "control", "./control":
-				io.Copy(&controlBuffer, tarReader)
+				_, err = io.Copy(&controlBuffer, tarReader)
+				if err != nil {
+					return "", err
+				}
 				return strings.TrimRight(controlBuffer.String(), "\n") + "\n", nil
 			}
 		default:
@@ -265,7 +351,12 @@ func inspectPackage(fileName string) (string, error) {
 	}
 
 	arReader := ar.NewReader(f)
-	defer f.Close()
+	defer func(f *os.File) {
+		err = f.Close()
+		if err != nil {
+			return
+		}
+	}(f)
 	var controlBuffer bytes.Buffer
 
 	for {
@@ -286,14 +377,17 @@ func inspectPackage(fileName string) (string, error) {
 				err := errors.New("No control file found")
 				return "", err
 			}
-			io.Copy(&controlBuffer, arReader)
+			_, err := io.Copy(&controlBuffer, arReader)
+			if err != nil {
+				return "", err
+			}
 			return inspectPackageControl(compression, controlBuffer)
 		}
 	}
 	return "", nil
 }
 
-func (s *ServiceConfigBuilder) DirectoryWatch() error {
+func (s *DebRepository) DirectoryWatch() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal("error creating fswatcher: ", err)

@@ -20,7 +20,7 @@ const (
 	FLUFIKSERVICEWEB       = "flufikweb"
 	FLUFIKKEYDBTYPE        = "kvdb"
 	FLUFIKAPPDBTYPE        = "app"
-	FLUFIKAPPSTORAGE       = "apps"
+	FLUFIKROOTPATH         = "/opt/flufik"
 )
 
 func Home() string {
@@ -80,10 +80,10 @@ func FlufikCurrentDir() string {
 	return currentDir
 }
 
-func FlufikServiceWebHome() string {
-	return filepath.Join("/opt/flufik", FLUFIKSERVICEWEB)
+func FlufikRootHome() string {
+	return FLUFIKROOTPATH
 }
 
-func FlufikAppsHome() string {
-	return filepath.Join("/opt/flufik", FLUFIKAPPSTORAGE)
+func FlufikServiceWebHome(rootPath string) string {
+	return filepath.Join(rootPath, FLUFIKSERVICEWEB)
 }

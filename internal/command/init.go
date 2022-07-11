@@ -2,9 +2,9 @@ package command
 
 import (
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
+	"github.com/egevorkyan/flufik/users"
 	"log"
 	"os"
 )
@@ -60,27 +60,32 @@ func flufikHomeInit() {
 		logging.ErrorHandler("fatal: ", err)
 	}
 
-	if err = initializeKeys(); err != nil {
+	if err = initializeAdminUser(); err != nil {
 		logging.ErrorHandler("warning: ", err)
 	}
 
 }
 
 func initDB() error {
-	db := simpledb.NewSimpleDB(core.FlufikDbPath())
-	if err := db.CreateTable(core.FLUFIKKEYDBTYPE); err != nil {
+	db, err := simpledb.CreateInternalDb(core.FlufikDbPath())
+	if err != nil {
 		return err
 	}
-	if err := db.CreateTable(core.FLUFIKAPPDBTYPE); err != nil {
+	err = db.Close()
+	if err != nil {
 		return err
 	}
-	db.CloseDb()
 	return nil
 }
 
-func initializeKeys() error {
-	_, err := crypto.GetApiKey()
-	if err = crypto.CreateApiKey(); err != nil {
+func initializeAdminUser() error {
+	u := users.NewUser()
+	err := u.CreateUser("admin", "admin")
+	if err != nil {
+		return err
+	}
+	err = u.DumpUser("admin", "initial-user.txt")
+	if err != nil {
 		return err
 	}
 	return nil

@@ -48,14 +48,20 @@ func FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error) {
 }
 
 func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
-	db := simpledb.NewSimpleDB(core.FlufikDbPath())
-	privateEncoded, err := db.GetKey(privateKey)
+	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
 	if err != nil {
 		return nil, err
 	}
-	db.CloseDb()
-	priv := privateEncoded.PrivateKeyValue
-	pwd := privateEncoded.TokenValue
+	privateEncoded, err := db.GetPgpByName(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Close()
+	if err != nil {
+		return nil, err
+	}
+	priv := privateEncoded.PrivateKey
+	pwd := privateEncoded.PassPhrase
 	decodedPrivateKey, err := B64Decoder(priv)
 	if err != nil {
 		return nil, err
@@ -105,14 +111,20 @@ func FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
 }
 
 func FlufikDecryptPrivateKey(keyName, passPhrase, dbName string) (*openpgp.Entity, error) {
-	db := simpledb.NewSimpleDB(core.FlufikDbPath())
-	encodedPrivateKey, err := db.GetKey(keyName)
+	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	if err != nil {
+		return nil, err
+	}
+	encodedPrivateKey, err := db.GetPgpByName(keyName)
 	if err != nil {
 		return nil, fmt.Errorf("fatal: %w", err)
 	}
-	db.CloseDb()
+	err = db.Close()
+	if err != nil {
+		return nil, err
+	}
 
-	privateKey, err := B64Decoder(encodedPrivateKey.PrivateKeyValue)
+	privateKey, err := B64Decoder(encodedPrivateKey.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("fatal: %w", err)
 	}

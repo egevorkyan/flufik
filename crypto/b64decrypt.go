@@ -3,10 +3,9 @@ package crypto
 import (
 	"encoding/base64"
 	"github.com/egevorkyan/flufik/core"
-	"math/rand"
+	"github.com/sethvargo/go-password/password"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 const (
@@ -14,7 +13,6 @@ const (
 	upperCharSet   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	specialCharSet = "!@#$%&*"
 	numberSet      = "0123456789"
-	allCharSet     = lowerCharSet + upperCharSet + specialCharSet + numberSet
 )
 
 func B64Decoder(data string) ([]byte, error) {
@@ -50,35 +48,19 @@ func SaveB64DecodedData(data, fileName string) (string, error) {
 	return absFileName, nil
 }
 
-func PasswordGenerator(passwordLength, minSpecialChar, minNum, minUpperCase int) string {
-	var password strings.Builder
-
-	//Set special character
-	for i := 0; i < minSpecialChar; i++ {
-		random := rand.Intn(len(specialCharSet))
-		password.WriteString(string(specialCharSet[random]))
-	}
-
-	//Set numeric
-	for i := 0; i < minNum; i++ {
-		random := rand.Intn(len(numberSet))
-		password.WriteString(string(numberSet[random]))
-	}
-
-	//Set uppercase
-	for i := 0; i < minUpperCase; i++ {
-		random := rand.Intn(len(upperCharSet))
-		password.WriteString(string(upperCharSet[random]))
-	}
-
-	remainingLength := passwordLength - minSpecialChar - minNum - minUpperCase
-	for i := 0; i < remainingLength; i++ {
-		random := rand.Intn(len(allCharSet))
-		password.WriteString(string(allCharSet[random]))
-	}
-	pwdRune := []rune(password.String())
-	rand.Shuffle(len(pwdRune), func(i, j int) {
-		pwdRune[i], pwdRune[j] = pwdRune[j], pwdRune[i]
+func PasswordGenerator(passwordLength, minSpecialChar, minNum, minUpperCase int) (string, error) {
+	pwd, err := password.NewGenerator(&password.GeneratorInput{
+		Symbols:      specialCharSet,
+		Digits:       numberSet,
+		LowerLetters: lowerCharSet,
+		UpperLetters: upperCharSet,
 	})
-	return string(pwdRune)
+	if err != nil {
+		return "", err
+	}
+	p, err := pwd.Generate(passwordLength, minNum, minSpecialChar, false, false)
+	if err != nil {
+		return "", err
+	}
+	return p, nil
 }

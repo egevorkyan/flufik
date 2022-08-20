@@ -35,7 +35,6 @@ func (flufikPkgFile *FlufikPackageFile) FileData() ([]byte, error) {
 }
 
 func (flufikPkgFile *FlufikPackageFile) FileMode() uint {
-	fmt.Println(flufikPkgFile.Source)
 	if stat, err := os.Stat(flufikPkgFile.Source); err == nil && !stat.IsDir() {
 		return uint(stat.Mode())
 	} else {

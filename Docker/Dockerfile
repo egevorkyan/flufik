@@ -6,8 +6,8 @@ ARG UNAME=flufik
 
 WORKDIR /flufik
 
-COPY Docker/flufik /bin/flufik
-COPY Docker/service.sh .
+COPY flufik /bin/flufik
+COPY service.sh .
 
 RUN chmod +x /bin/flufik \
     && useradd -m -d /opt/flufik $UNAME

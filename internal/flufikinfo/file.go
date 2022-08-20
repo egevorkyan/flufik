@@ -1,7 +1,7 @@
 package flufikinfo
 
 import (
-	"io/ioutil"
+	"fmt"
 	"os"
 	"time"
 )
@@ -23,17 +23,19 @@ type FlufikPackageDir struct {
 	Group       string `yaml:"group"`
 }
 
-func (flufikPkgFile *FlufikPackageFile) FileData() []byte {
-	if data, err := ioutil.ReadFile(flufikPkgFile.Source); err == nil {
-		return data
+func (flufikPkgFile *FlufikPackageFile) FileData() ([]byte, error) {
+	if data, err := os.ReadFile(flufikPkgFile.Source); err == nil {
+		return data, nil
 	} else if flufikPkgFile.Body != "" {
-		return []byte(flufikPkgFile.Body)
+		return []byte(flufikPkgFile.Body), nil
 	} else {
-		return make([]byte, 0)
+		curDir, _ := os.Getwd()
+		return nil, fmt.Errorf("path is wrong or file/directory does not exists, tried to reach from this workdir %s to target %s: %v", curDir, flufikPkgFile.Source, err)
 	}
 }
 
 func (flufikPkgFile *FlufikPackageFile) FileMode() uint {
+	fmt.Println(flufikPkgFile.Source)
 	if stat, err := os.Stat(flufikPkgFile.Source); err == nil && !stat.IsDir() {
 		return uint(stat.Mode())
 	} else {

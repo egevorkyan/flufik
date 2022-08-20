@@ -4,69 +4,113 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto"
-	"github.com/egevorkyan/flufik/pkg/plugins/simpledb"
+	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/nosql"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-type Users struct{}
+const (
+	USERCOLLECTION = "users"
+	USERINDEXNAME  = "Username"
+)
 
-func NewUser() *Users {
-	return &Users{}
+type Users struct {
+	logger    *logging.Logger
+	debugging string
+}
+
+func NewUser(logger *logging.Logger, debugging string) *Users {
+	return &Users{logger: logger, debugging: debugging}
 }
 
 func (u *Users) CreateUser(username string, mode string) error {
-	pwd, err := crypto.PasswordGenerator(15, 3, 4, 3)
+	if u.debugging == "1" {
+		u.logger.Info("creating user")
+	}
+	data := make(map[string]interface{})
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return err
 	}
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
 	if err != nil {
 		return err
 	}
-	err = db.InsertUsers(username, pwd, mode)
+	docId, _, err := tieDb.Get(genQuery, USERCOLLECTION)
 	if err != nil {
 		return err
 	}
-	err = db.Close()
-	if err != nil {
-		return err
+	if docId == 0 {
+		pwd := crypto.NewPwdGen(15, 3, 4, 3, u.logger, u.debugging)
+		pass, err := pwd.PasswordGenerator()
+		if err != nil {
+			return err
+		}
+		data["Username"] = username
+		data["Password"] = pass
+		data["Mode"] = mode
+		err = tieDb.Insert(data, USERCOLLECTION)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (u *Users) UpdateUser(username string) (string, error) {
-	pwd, err := crypto.PasswordGenerator(15, 3, 4, 3)
+	if u.debugging == "1" {
+		u.logger.Info("updating user")
+	}
+	pwd := crypto.NewPwdGen(15, 3, 4, 3, u.logger, u.debugging)
+	pass, err := pwd.PasswordGenerator()
 	if err != nil {
 		return "", err
 	}
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	data := make(map[string]interface{})
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return "", err
 	}
-	err = db.UpdateUserByName(username, pwd)
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
 	if err != nil {
 		return "", err
 	}
-	err = db.Close()
+	docId, value, err := tieDb.Get(genQuery, USERCOLLECTION)
 	if err != nil {
 		return "", err
 	}
-	return pwd, nil
+	if docId != 0 {
+		data["Username"] = value["Username"]
+		data["Password"] = pass
+		data["Mode"] = value["Mode"]
+		err = tieDb.Update(docId, data, USERCOLLECTION)
+		if err != nil {
+			return "", err
+		}
+	}
+	return pass, nil
 }
 
 func (u *Users) Validate(username string, password string, mode string) (bool, error) {
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	if u.debugging == "1" {
+		u.logger.Info("user validation")
+	}
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return false, err
 	}
-	userData, err := db.GetUserByName(username)
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
 	if err != nil {
 		return false, err
 	}
-	if strings.Compare(userData.Password, password) == 0 {
-		if strings.Compare(userData.Mode, mode) == 0 {
+	_, value, err := tieDb.Get(genQuery, USERCOLLECTION)
+	if err != nil {
+		return false, err
+	}
+	if strings.Compare(fmt.Sprint(value["Password"]), password) == 0 {
+		if strings.Compare(fmt.Sprint(value["Mode"]), mode) == 0 {
 			return true, nil
 		}
 	}
@@ -74,15 +118,18 @@ func (u *Users) Validate(username string, password string, mode string) (bool, e
 }
 
 func (u *Users) DumpUser(username string, fileName string) error {
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	if u.debugging == "1" {
+		u.logger.Info("dump user")
+	}
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return err
 	}
-	userData, err := db.GetUserByName(username)
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
 	if err != nil {
 		return err
 	}
-	err = db.Close()
+	_, value, err := tieDb.Get(genQuery, USERCOLLECTION)
 	if err != nil {
 		return err
 	}
@@ -96,7 +143,7 @@ func (u *Users) DumpUser(username string, fileName string) error {
 			return
 		}
 	}(f)
-	_, err = fmt.Fprintf(f, "Username: %s Password: %s Mode: %s", userData.UserName, userData.Password, userData.Mode)
+	_, err = fmt.Fprintf(f, "Username: %s Password: %s Mode: %s", value["Username"], value["Password"], value["Mode"])
 	if err != nil {
 		return err
 	}
@@ -104,11 +151,22 @@ func (u *Users) DumpUser(username string, fileName string) error {
 }
 
 func (u *Users) DeleteUser(username string) error {
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	if u.debugging == "1" {
+		u.logger.Info("delete user")
+	}
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return err
 	}
-	err = db.DeleteUserByName(username)
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
+	if err != nil {
+		return err
+	}
+	docId, _, err := tieDb.Get(genQuery, USERCOLLECTION)
+	if err != nil {
+		return err
+	}
+	err = tieDb.Delete(docId, USERCOLLECTION)
 	if err != nil {
 		return err
 	}
@@ -116,17 +174,20 @@ func (u *Users) DeleteUser(username string) error {
 }
 
 func (u *Users) GetUserPwd(username string) (string, error) {
-	db, err := simpledb.OpenInternalDB(core.FlufikDbPath())
+	if u.debugging == "1" {
+		u.logger.Info("identifying user password")
+	}
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
 	if err != nil {
 		return "", err
 	}
-	userData, err := db.GetUserByName(username)
+	genQuery, err := tieDb.QueryGen(username, "eq", USERINDEXNAME)
 	if err != nil {
 		return "", err
 	}
-	err = db.Close()
+	_, value, err := tieDb.Get(genQuery, USERCOLLECTION)
 	if err != nil {
 		return "", err
 	}
-	return userData.Password, nil
+	return fmt.Sprint(value["Password"]), nil
 }

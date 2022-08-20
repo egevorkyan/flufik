@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/egevorkyan/flufik/pkg/config"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/plugins/debrepository"
 	"github.com/egevorkyan/flufik/pkg/plugins/rpmrepository"
 	"github.com/egevorkyan/flufik/users"
@@ -15,7 +16,6 @@ import (
 	"github.com/shaj13/go-guardian/store"
 	"github.com/unrolled/render"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -31,19 +31,25 @@ type deleteObject struct {
 }
 
 type Handler struct {
-	cfg *config.ServiceConfigBuilder
-	deb *debrepository.DebRepository
-	yum *rpmrepository.RpmRepo
+	cfg          *config.ServiceConfigBuilder
+	deb          *debrepository.DebRepository
+	yum          *rpmrepository.RpmRepo
+	templatePath string
+	logger       *logging.Logger
+	debugging    string
 }
 
 var authenticator auth.Authenticator
 var cache store.Cache
 
-func New(cfg *config.ServiceConfigBuilder, deb *debrepository.DebRepository, yum *rpmrepository.RpmRepo) *Handler {
-	return &Handler{cfg: cfg, deb: deb, yum: yum}
+func New(cfg *config.ServiceConfigBuilder, deb *debrepository.DebRepository, yum *rpmrepository.RpmRepo, templatePath string, logger *logging.Logger, debugging string) *Handler {
+	return &Handler{cfg: cfg, deb: deb, yum: yum, templatePath: templatePath, logger: logger, debugging: debugging}
 }
 
 func (h *Handler) Upload(res http.ResponseWriter, req *http.Request) {
+	if h.debugging == "1" {
+		h.logger.Info("upload handler")
+	}
 	params := req.URL.Query()
 	archType := params["arch"][0]
 	distroName := params["distro"][0]
@@ -89,11 +95,11 @@ func (h *Handler) Upload(res http.ResponseWriter, req *http.Request) {
 			_ = r.JSON(res, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !h.cfg.EnableDirectoryWatching {
-			if err = h.deb.RebuildRepoMetadata(path); err != nil {
-				_ = r.JSON(res, http.StatusInternalServerError, err.Error())
-			}
+
+		if err = h.deb.RebuildRepoMetadata(path); err != nil {
+			_ = r.JSON(res, http.StatusInternalServerError, err.Error())
 		}
+
 		_ = r.JSON(res, http.StatusOK, header.Filename)
 	case "rpm":
 		f, header, err := req.FormFile("file")
@@ -122,11 +128,14 @@ func (h *Handler) Upload(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) CreateUser(res http.ResponseWriter, req *http.Request) {
+	if h.debugging == "1" {
+		h.logger.Info("create user handler")
+	}
 	vars := mux.Vars(req)
 	username := vars["username"]
 	mode := vars["mode"]
 	r := render.New()
-	u := users.NewUser()
+	u := users.NewUser(h.logger, h.debugging)
 	err := u.CreateUser(username, mode)
 	if err != nil {
 		_ = r.JSON(res, http.StatusInternalServerError, err.Error())
@@ -139,10 +148,13 @@ func (h *Handler) CreateUser(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) UpdateUser(res http.ResponseWriter, req *http.Request) {
+	if h.debugging == "1" {
+		h.logger.Info("update user handler")
+	}
 	vars := mux.Vars(req)
 	username := vars["username"]
 	r := render.New()
-	u := users.NewUser()
+	u := users.NewUser(h.logger, h.debugging)
 	pwd, err := u.UpdateUser(username)
 	if err != nil {
 		_ = r.JSON(res, http.StatusInternalServerError, err.Error())
@@ -151,10 +163,13 @@ func (h *Handler) UpdateUser(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) DeleteUser(res http.ResponseWriter, req *http.Request) {
+	if h.debugging == "1" {
+		h.logger.Info("delete user handler")
+	}
 	vars := mux.Vars(req)
 	username := vars["username"]
 	r := render.New()
-	u := users.NewUser()
+	u := users.NewUser(h.logger, h.debugging)
 	err := u.DeleteUser(username)
 	if err != nil {
 		_ = r.JSON(res, http.StatusInternalServerError, err.Error())
@@ -164,14 +179,16 @@ func (h *Handler) DeleteUser(res http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) Middleware(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Executing Auth Middleware")
+		if h.debugging == "1" {
+			h.logger.Info("Executing Auth Middleware")
+		}
 		user, err := authenticator.Authenticate(r)
 		if err != nil {
 			code := http.StatusUnauthorized
 			http.Error(w, http.StatusText(code), code)
 			return
 		}
-		log.Printf("User %s Authenticated\n", user.UserName())
+		h.logger.Info("User %s Authenticated\n", user.UserName())
 		next.ServeHTTP(w, r)
 	})
 }
@@ -188,7 +205,9 @@ func (h *Handler) SetupGoGuardian() {
 }
 
 func validateUser(ctx context.Context, r *http.Request, userName, password string) (auth.Info, error) {
-	u := users.NewUser()
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	u := users.NewUser(logger, debuging)
 	valid, err := u.Validate(userName, password, "admin")
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")

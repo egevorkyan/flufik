@@ -3,7 +3,6 @@ package flufikinfo
 import (
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"path"
 	"strings"
 	"time"
 )
@@ -27,8 +26,9 @@ type FlufikDebSignature struct {
 }
 
 type FlufikPackageSignature struct {
-	PrivateKey string `yaml:"private_key,omitempty"`
-	PassPhrase string `yaml:"pass_phrase,omitempty"`
+	//PrivateKey string `yaml:"private_key,omitempty"`
+	//PassPhrase string `yaml:"pass_phrase,omitempty"`
+	PgpName string `yaml:"pgp_name,omitempty"`
 }
 
 func (flufikPkg *FlufikPackage) AppendPreIn(script string) {
@@ -66,22 +66,25 @@ func (flufikPkg *FlufikPackage) PostUnScript() string {
 //Signature
 
 func (flufikPkg *FlufikPackage) AddSignatureKey() string {
-	return flufikPkg.Signature.PrivateKey
+	return flufikPkg.Signature.PgpName
 }
 
 func (flufikPkg *FlufikPackage) AddSignatureType() string {
 	return flufikPkg.Signature.Type
 }
-func (flufikPkg *FlufikPackage) AddSignaturePassPhrase() string {
-	return flufikPkg.Signature.PassPhrase
-}
+
+//func (flufikPkg *FlufikPackage) AddSignaturePassPhrase() string {
+//	return flufikPkg.Signature.PassPhrase
+//}
 
 func (p *FlufikPackage) JoinedFilePath(filepath string) string {
-	if filepath != "" && !strings.HasPrefix(filepath, "/") {
-		return path.Join(p.sourceHome, filepath)
-	} else {
-		return filepath
-	}
+	//if filepath != "" && !strings.HasPrefix(filepath, "/") {
+	//	fmt.Println(path.Join(p.sourceHome, filepath))
+	//	return path.Join(p.sourceHome, filepath)
+	//} else {
+	//	return filepath
+	//}
+	return filepath
 }
 
 func (p *FlufikPackage) init() {

@@ -28,9 +28,11 @@ func NewFlufikPushCommand() *PushFlufikCommand {
 	}
 	jrepo := NewFlufikPushJfrogCommand()
 	nxrepo := NewFlufikPushNexusCommand()
+	f := NewFlufikPushRepoFlufikCommand()
 	c.command.AddCommand(
 		jrepo.command,
 		nxrepo.command,
+		f.command,
 	)
 	return c
 }

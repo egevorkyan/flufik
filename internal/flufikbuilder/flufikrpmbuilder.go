@@ -3,8 +3,9 @@ package flufikbuilder
 import (
 	"errors"
 	"fmt"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/google/rpmpack"
 	"io"
 )
@@ -12,9 +13,11 @@ import (
 type FlufikRPMBuilder struct {
 	FlufikPackageBuilder
 	packageInfo *flufikinfo.FlufikPackage
+	logger      *logging.Logger
+	debugger    string
 }
 
-func (flufikRpm *FlufikRPMBuilder) rpmMetadata(flufikMeta flufikinfo.FlufikPackageMeta) rpmpack.RPMMetaData {
+func (r *FlufikRPMBuilder) rpmMetadata(flufikMeta flufikinfo.FlufikPackageMeta) rpmpack.RPMMetaData {
 	return rpmpack.RPMMetaData{
 		Name:        flufikMeta.Name,
 		Summary:     flufikMeta.Summary,
@@ -41,7 +44,7 @@ func (flufikRpm *FlufikRPMBuilder) rpmMetadata(flufikMeta flufikinfo.FlufikPacka
 	}
 }
 
-func (flufikRpm *FlufikRPMBuilder) dirToRPMFile(flufikInfo flufikinfo.FlufikPackageDir) rpmpack.RPMFile {
+func (r *FlufikRPMBuilder) dirToRPMFile(flufikInfo flufikinfo.FlufikPackageDir) rpmpack.RPMFile {
 	return rpmpack.RPMFile{
 		Name:  flufikInfo.Destination,
 		Mode:  flufikInfo.Mode + 040000,
@@ -50,7 +53,7 @@ func (flufikRpm *FlufikRPMBuilder) dirToRPMFile(flufikInfo flufikinfo.FlufikPack
 	}
 }
 
-func (flufikRpm *FlufikRPMBuilder) fileToRpmFile(tName string, flufikInfo flufikinfo.FlufikPackageFile) (rpmpack.RPMFile, error) {
+func (r *FlufikRPMBuilder) fileToRpmFile(tName string, flufikInfo flufikinfo.FlufikPackageFile) (rpmpack.RPMFile, error) {
 	fileType := rpmpack.GenericFile
 
 	switch tName {
@@ -80,9 +83,14 @@ func (flufikRpm *FlufikRPMBuilder) fileToRpmFile(tName string, flufikInfo flufik
 		return rpmpack.RPMFile{}, errors.New("unexpected file type: " + tName)
 	}
 
+	body, err := flufikInfo.FileData()
+	if err != nil {
+		return rpmpack.RPMFile{}, err
+	}
+
 	return rpmpack.RPMFile{
 		Name:  flufikInfo.Destination,
-		Body:  flufikInfo.FileData(),
+		Body:  body,
 		Mode:  flufikInfo.FileMode(),
 		Owner: flufikInfo.Owner,
 		Group: flufikInfo.Group,
@@ -91,8 +99,8 @@ func (flufikRpm *FlufikRPMBuilder) fileToRpmFile(tName string, flufikInfo flufik
 	}, nil
 }
 
-func (flufikRpm *FlufikRPMBuilder) FileName() (string, error) {
-	flufikMeta := flufikRpm.packageInfo.Meta
+func (r *FlufikRPMBuilder) FileName() (string, error) {
+	flufikMeta := r.packageInfo.Meta
 
 	if flufikMeta.Name == "" {
 		return "", errors.New("undefined package name")
@@ -113,22 +121,22 @@ func (flufikRpm *FlufikRPMBuilder) FileName() (string, error) {
 	return fmt.Sprintf("%s-%s%s.%s.rpm", flufikMeta.Name, flufikMeta.Version, release, arch), nil
 }
 
-func (flufikRpm *FlufikRPMBuilder) Build(writer io.Writer) error {
+func (r *FlufikRPMBuilder) Build(writer io.Writer) error {
 	var (
 		flufikRpmPkg *rpmpack.RPM
 		err          error
 	)
-	if flufikRpmPkg, err = rpmpack.NewRPM(flufikRpm.rpmMetadata(flufikRpm.packageInfo.Meta)); err != nil {
+	if flufikRpmPkg, err = rpmpack.NewRPM(r.rpmMetadata(r.packageInfo.Meta)); err != nil {
 		return err
 	}
 
-	for _, dir := range flufikRpm.packageInfo.Directory {
-		flufikRpmPkg.AddFile(flufikRpm.dirToRPMFile(dir))
+	for _, dir := range r.packageInfo.Directory {
+		flufikRpmPkg.AddFile(r.dirToRPMFile(dir))
 	}
 
-	for tName, fList := range flufikRpm.packageInfo.Files {
+	for tName, fList := range r.packageInfo.Files {
 		for _, file := range fList {
-			if rpmFile, err := flufikRpm.fileToRpmFile(tName, file); err == nil {
+			if rpmFile, err := r.fileToRpmFile(tName, file); err == nil {
 				flufikRpmPkg.AddFile(rpmFile)
 			} else {
 				return err
@@ -136,25 +144,35 @@ func (flufikRpm *FlufikRPMBuilder) Build(writer io.Writer) error {
 		}
 	}
 
-	flufikRpmPkg.AddPrein(flufikRpm.packageInfo.PreInScript())
-	flufikRpmPkg.AddPostin(flufikRpm.packageInfo.PostInScript())
-	flufikRpmPkg.AddPreun(flufikRpm.packageInfo.PreUnScript())
-	flufikRpmPkg.AddPostun(flufikRpm.packageInfo.PostUnScript())
+	flufikRpmPkg.AddPrein(r.packageInfo.PreInScript())
+	flufikRpmPkg.AddPostin(r.packageInfo.PostInScript())
+	flufikRpmPkg.AddPreun(r.packageInfo.PreUnScript())
+	flufikRpmPkg.AddPostun(r.packageInfo.PostUnScript())
 
-	for _, dep := range flufikRpm.packageInfo.Dependencies {
+	for _, dep := range r.packageInfo.Dependencies {
 		if err = flufikRpmPkg.Requires.Set(dep.FlufikRPMFormat()); err != nil {
 			return err
 		}
 	}
-	if flufikRpm.packageInfo.Signature.PrivateKey != "" {
-		flufikRpmPkg.SetPGPSigner(crypto.FlufikRpmSigner(flufikRpm.packageInfo.Signature.PrivateKey))
 
+	var pgpKeyName string
+	if r.packageInfo.Signature.PgpName == "" {
+		pgpKeyName = "flufik"
+	} else {
+		pgpKeyName = r.packageInfo.Signature.PgpName
 	}
+
+	signer := pgp.NewSigner(r.logger, r.debugger)
+
+	flufikRpmPkg.SetPGPSigner(signer.FlufikRpmSigner(pgpKeyName))
+
 	return flufikRpmPkg.Write(writer)
 }
 
-func NewFlufikRpmBuilder(flufikPkgInfo *flufikinfo.FlufikPackage) FlufikPackageBuilder {
+func NewFlufikRpmBuilder(flufikPkgInfo *flufikinfo.FlufikPackage, logger *logging.Logger, debugger string) FlufikPackageBuilder {
 	return &FlufikRPMBuilder{
 		packageInfo: flufikPkgInfo,
+		logger:      logger,
+		debugger:    debugger,
 	}
 }

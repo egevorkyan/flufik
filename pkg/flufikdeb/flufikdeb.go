@@ -7,7 +7,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/blakesmith/ar"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"io"
 	"strings"
 	"time"
@@ -36,6 +37,8 @@ type FlufikDeb struct {
 	postUn string
 
 	configFiles *bytes.Buffer
+	logger      *logging.Logger
+	debugging   string
 }
 
 type FlufikDebSignature struct {
@@ -44,8 +47,7 @@ type FlufikDebSignature struct {
 }
 
 type FlufikPackageSignature struct {
-	PrivateKey string
-	PassPhrase string
+	PgpName string
 }
 
 func (flufikTgz *tarGzWriter) WriteHeader(header *tar.Header) error {
@@ -116,15 +118,15 @@ func newFlufikMd5() *md5Writer {
 	}
 }
 
-func (flufikDeb *FlufikDeb) internalFilePath(flufikFile *FlufikDebFile) (string, error) {
+func (d *FlufikDeb) internalFilePath(flufikFile *FlufikDebFile) (string, error) {
 	if !strings.HasPrefix(flufikFile.Name, "/") {
 		return "", fmt.Errorf("input file path is not an absolute path: %s", flufikFile.Name)
 	}
 	return "." + flufikFile.Name, nil
 }
 
-func (flufikDeb *FlufikDeb) compressFile(flufikFile *FlufikDebFile, data *tarGzWriter, md5sum *md5Writer) error {
-	installPath, err := flufikDeb.internalFilePath(flufikFile)
+func (d *FlufikDeb) compressFile(flufikFile *FlufikDebFile, data *tarGzWriter, md5sum *md5Writer) error {
+	installPath, err := d.internalFilePath(flufikFile)
 	if err != nil {
 		return err
 	}
@@ -146,15 +148,15 @@ func (flufikDeb *FlufikDeb) compressFile(flufikFile *FlufikDebFile, data *tarGzW
 	}
 
 	if flufikFile.isConfig() {
-		if _, err = fmt.Fprintf(flufikDeb.configFiles, flufikFile.Name); err != nil {
+		if _, err = fmt.Fprintf(d.configFiles, flufikFile.Name); err != nil {
 			return fmt.Errorf("generate config file information for %s failed: %w", installPath, err)
 		}
 	}
 	return nil
 }
 
-func (flufikDeb *FlufikDeb) compressDir(flufikFile *FlufikDebFile, data *tarGzWriter) error {
-	installPath, err := flufikDeb.internalFilePath(flufikFile)
+func (d *FlufikDeb) compressDir(flufikFile *FlufikDebFile, data *tarGzWriter) error {
+	installPath, err := d.internalFilePath(flufikFile)
 	if err != nil {
 		return err
 	}
@@ -176,7 +178,7 @@ func (flufikDeb *FlufikDeb) compressDir(flufikFile *FlufikDebFile, data *tarGzWr
 	return nil
 }
 
-func (flufikDeb *FlufikDeb) compressMetaData(filename string, body []byte, meta *tarGzWriter) error {
+func (d *FlufikDeb) compressMetaData(filename string, body []byte, meta *tarGzWriter) error {
 	head := tar.Header{
 		Name:     filename,
 		Size:     int64(len(body)),
@@ -191,38 +193,38 @@ func (flufikDeb *FlufikDeb) compressMetaData(filename string, body []byte, meta 
 	return nil
 }
 
-func (flufikDeb *FlufikDeb) compressControl(meta *tarGzWriter) error {
-	return flufikDeb.compressMetaData("control", flufikDeb.MakeControl(), meta)
+func (d *FlufikDeb) compressControl(meta *tarGzWriter) error {
+	return d.compressMetaData("control", d.MakeControl(), meta)
 }
 
-func (flufikDeb *FlufikDeb) compressConfigurationFiles(meta *tarGzWriter) error {
-	return flufikDeb.compressMetaData("configuration_files", flufikDeb.configFiles.Bytes(), meta)
+func (d *FlufikDeb) compressConfigurationFiles(meta *tarGzWriter) error {
+	return d.compressMetaData("configuration_files", d.configFiles.Bytes(), meta)
 }
 
-func (flufikDeb *FlufikDeb) compressMD5(meta *tarGzWriter, md5sum *md5Writer) error {
-	return flufikDeb.compressMetaData("md5sums", md5sum.MD5Sums(), meta)
+func (d *FlufikDeb) compressMD5(meta *tarGzWriter, md5sum *md5Writer) error {
+	return d.compressMetaData("md5sums", md5sum.MD5Sums(), meta)
 }
 
-func (flufikDeb *FlufikDeb) compressScripts(meta *tarGzWriter) error {
-	if err := flufikDeb.compressMetaData("preinst", []byte(flufikDeb.preIn), meta); err != nil {
+func (d *FlufikDeb) compressScripts(meta *tarGzWriter) error {
+	if err := d.compressMetaData("preinst", []byte(d.preIn), meta); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressMetaData("postinst", []byte(flufikDeb.postIn), meta); err != nil {
+	if err := d.compressMetaData("postinst", []byte(d.postIn), meta); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressMetaData("prerm", []byte(flufikDeb.preUn), meta); err != nil {
+	if err := d.compressMetaData("prerm", []byte(d.preUn), meta); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressMetaData("postrm", []byte(flufikDeb.postUn), meta); err != nil {
+	if err := d.compressMetaData("postrm", []byte(d.postUn), meta); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (flufikDeb *FlufikDeb) arCompress(w *ar.Writer, filename string, body []byte) error {
+func (d *FlufikDeb) arCompress(w *ar.Writer, filename string, body []byte) error {
 	head := ar.Header{
 		Name:    filename,
 		Size:    int64(len(body)),
@@ -239,36 +241,37 @@ func (flufikDeb *FlufikDeb) arCompress(w *ar.Writer, filename string, body []byt
 	return err
 }
 
-func (flufikDeb *FlufikDeb) Write(w io.Writer) error {
+func (d *FlufikDeb) Write(w io.Writer) error {
+
 	flufikMeta := newFlufikTgz()
 	flufikData := newFlufikTgz()
 	flufikMd5Sum := newFlufikMd5()
 
-	for _, f := range flufikDeb.files {
+	for _, f := range d.files {
 		if f.isDir() {
-			if err := flufikDeb.compressDir(&f, flufikData); err != nil {
+			if err := d.compressDir(&f, flufikData); err != nil {
 				return err
 			}
 		} else {
-			if err := flufikDeb.compressFile(&f, flufikData, flufikMd5Sum); err != nil {
+			if err := d.compressFile(&f, flufikData, flufikMd5Sum); err != nil {
 				return nil
 			}
 		}
 	}
 
-	if err := flufikDeb.compressControl(flufikMeta); err != nil {
+	if err := d.compressControl(flufikMeta); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressMD5(flufikMeta, flufikMd5Sum); err != nil {
+	if err := d.compressMD5(flufikMeta, flufikMd5Sum); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressConfigurationFiles(flufikMeta); err != nil {
+	if err := d.compressConfigurationFiles(flufikMeta); err != nil {
 		return err
 	}
 
-	if err := flufikDeb.compressScripts(flufikMeta); err != nil {
+	if err := d.compressScripts(flufikMeta); err != nil {
 		return err
 	}
 
@@ -287,39 +290,43 @@ func (flufikDeb *FlufikDeb) Write(w io.Writer) error {
 
 	debianBinary := []byte("2.0\n")
 
-	if err := flufikDeb.arCompress(writer, "debian-binary", debianBinary); err != nil {
+	if err := d.arCompress(writer, "debian-binary", debianBinary); err != nil {
 		return fmt.Errorf("can not write ar header to deb file: %w", err)
 	}
 
-	if err := flufikDeb.arCompress(writer, "control.tar.gz", flufikMeta.Bytes()); err != nil {
+	if err := d.arCompress(writer, "control.tar.gz", flufikMeta.Bytes()); err != nil {
 		return fmt.Errorf("can not add control.tar.gz to deb: %w", err)
 	}
 
-	if err := flufikDeb.arCompress(writer, "data.tar.gz", flufikData.Bytes()); err != nil {
+	if err := d.arCompress(writer, "data.tar.gz", flufikData.Bytes()); err != nil {
 		return fmt.Errorf("can not add data.tar.gz to deb: %w", err)
 	}
 
-	if flufikDeb.Signature.PrivateKey != "" {
-		data := io.MultiReader(bytes.NewReader(debianBinary), bytes.NewReader(flufikMeta.Bytes()),
-			bytes.NewReader(flufikData.Bytes()))
-		sig, err := crypto.FlufikDebSigner(data, flufikDeb.Signature.PrivateKey)
-		if err != nil {
-			return fmt.Errorf("signing failure: %w", err)
-		}
+	var pgpKeyName string
+	if d.Signature.PgpName == "" {
+		pgpKeyName = "flufik"
+	} else {
+		pgpKeyName = d.Signature.PgpName
+	}
 
-		sigType := "origin"
-		if flufikDeb.Signature.Type != "" {
-			sigType = flufikDeb.Signature.Type
-		}
+	data := io.MultiReader(bytes.NewReader(debianBinary), bytes.NewReader(flufikMeta.Bytes()),
+		bytes.NewReader(flufikData.Bytes()))
+	signer := pgp.NewSigner(d.logger, d.debugging)
+	sig, err := signer.FlufikDebSigner(data, pgpKeyName)
+	if err != nil {
+		return fmt.Errorf("signing failure: %w", err)
+	}
+	sigType := "origin"
+	if d.Signature.Type != "" {
+		sigType = d.Signature.Type
+	}
 
-		if sigType != "origin" && sigType != "maint" && sigType != "archive" {
-			return fmt.Errorf("invalid signature type")
-		}
+	if sigType != "origin" && sigType != "maint" && sigType != "archive" {
+		return fmt.Errorf("invalid signature type")
+	}
 
-		if err = flufikDeb.arCompress(writer, "_gpg"+sigType, sig); err != nil {
-			return fmt.Errorf("something went wrong with writing signed file: %w", err)
-		}
-
+	if err = d.arCompress(writer, "_gpg"+sigType, sig); err != nil {
+		return fmt.Errorf("something went wrong with writing signed file: %w", err)
 	}
 	return nil
 }
@@ -332,13 +339,16 @@ func (d *FlufikDeb) AddPostUn(s string)               { d.postUn = s }
 
 //Signature related functions
 
-func (d *FlufikDeb) AddSignatureKey(k string)        { d.Signature.PrivateKey = k }
-func (d *FlufikDeb) AddSignatureType(t string)       { d.Signature.Type = t }
-func (d *FlufikDeb) AddSignaturePassPhrase(p string) { d.Signature.PassPhrase = p }
+func (d *FlufikDeb) AddSignatureKey(k string)  { d.Signature.PgpName = k }
+func (d *FlufikDeb) AddSignatureType(t string) { d.Signature.Type = t }
 
-func NewDeb(flufikMeta FlufikDebMetaData) (*FlufikDeb, error) {
+//func (d *FlufikDeb) AddSignaturePassPhrase(p string) { d.Signature.PassPhrase = p }
+
+func NewDeb(flufikMeta FlufikDebMetaData, logger *logging.Logger, debugging string) (*FlufikDeb, error) {
 	return &FlufikDeb{
 		FlufikDebMetaData: flufikMeta,
 		configFiles:       bytes.NewBufferString(""),
+		logger:            logger,
+		debugging:         debugging,
 	}, nil
 }

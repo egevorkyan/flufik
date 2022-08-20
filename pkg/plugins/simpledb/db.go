@@ -3,13 +3,21 @@ package simpledb
 import (
 	"database/sql"
 	"fmt"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	_ "modernc.org/sqlite"
 	"os"
 )
 
-type FluffDb struct {
+type UserDb struct {
 	db     *sql.DB
 	dbpath string
+	logger *logging.Logger
+}
+
+type PgpDb struct {
+	db     *sql.DB
+	dbpath string
+	logger *logging.Logger
 }
 
 type Pgp struct {
@@ -24,8 +32,9 @@ type User struct {
 	Mode     string
 }
 
-//CreateInternalDb - Create internal Database
-func CreateInternalDb(path string) (*FluffDb, error) {
+// CreateUserDb - Create internal Database
+func CreateUserDb(path string, logger *logging.Logger) (*UserDb, error) {
+	logger.Info("create user database")
 	_, err := os.Stat(path)
 	if err == nil {
 		err = os.Remove(path)
@@ -39,53 +48,118 @@ func CreateInternalDb(path string) (*FluffDb, error) {
 	}
 
 	// create database tables
-	_, err = db.Exec(sqlCreateTables)
+	_, err = db.Exec(userCreateIndexes)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Internal DB tables: %v", err)
 	}
 
 	// create database indexes
-	_, err = db.Exec(sqlCreateIndexes)
+	_, err = db.Exec(userCreateIndexes)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Internal DB indexes: %v", err)
 	}
 
-	return &FluffDb{
+	return &UserDb{
 		db:     db,
 		dbpath: path,
+		logger: logger,
 	}, nil
 }
 
-// OpenInternalDB opens a internal database SQLite database from file and return a
+// CreatePgpDb - Create internal Database
+func CreatePgpDb(path string, logger *logging.Logger) (*PgpDb, error) {
+	logger.Info("create pgp database")
+	_, err := os.Stat(path)
+	if err == nil {
+		err = os.Remove(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Internal DB: %v", err)
+	}
+
+	// create database tables
+	_, err = db.Exec(pgpCreateTables)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Internal DB tables: %v", err)
+	}
+
+	// create database indexes
+	_, err = db.Exec(pgpCreateIndexes)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Internal DB indexes: %v", err)
+	}
+
+	return &PgpDb{
+		db:     db,
+		dbpath: path,
+		logger: logger,
+	}, nil
+}
+
+// OpenUserDB opens a internal database SQLite database from file and return a
 // pointer to the resulting struct.
-func OpenInternalDB(path string) (*FluffDb, error) {
+func OpenUserDB(path string, logger *logging.Logger) (*UserDb, error) {
+	logger.Info("open user database")
 	// open database file
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can not open internal database: %v", err)
 	}
-	return &FluffDb{
+	return &UserDb{
 		db:     db,
 		dbpath: path,
+		logger: logger,
 	}, nil
 }
 
-func (f *FluffDb) Begin() (*sql.Tx, error) {
-	return f.db.Begin()
+// OpenPgpDB opens a internal database SQLite database from file and return a
+// pointer to the resulting struct.
+func OpenPgpDB(path string, logger *logging.Logger) (*PgpDb, error) {
+	logger.Info("open pgp database")
+	// open database file
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, fmt.Errorf("can not open internal database: %v", err)
+	}
+	return &PgpDb{
+		db:     db,
+		dbpath: path,
+		logger: logger,
+	}, nil
 }
 
-func (f *FluffDb) Close() error {
-	if f.db != nil {
-		return f.db.Close()
+func (u *UserDb) Begin() (*sql.Tx, error) {
+	return u.db.Begin()
+}
+
+func (u *UserDb) Close() error {
+	if u.db != nil {
+		return u.db.Close()
 	}
 	return nil
 }
 
-func (f *FluffDb) InsertPgpKeys(keyName string, privateKey string, publicKey string, passPhrase string) error {
+func (p *PgpDb) Begin() (*sql.Tx, error) {
+	return p.db.Begin()
+}
+
+func (p *PgpDb) Close() error {
+	if p.db != nil {
+		return p.db.Close()
+	}
+	return nil
+}
+
+func (p *PgpDb) InsertPgpKeys(keyName string, privateKey string, publicKey string, passPhrase string) error {
+	p.logger.Info("insert pgp key to internal database")
 	// insert pgp key
-	statement, err := f.db.Prepare(sqlInsertPgpKey)
+	statement, err := p.db.Prepare(sqlInsertPgpKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not prepare database statement: %v", err)
 	}
 	defer func(statement *sql.Stmt) {
 		err = statement.Close()
@@ -96,16 +170,17 @@ func (f *FluffDb) InsertPgpKeys(keyName string, privateKey string, publicKey str
 
 	_, err = statement.Exec(keyName, privateKey, publicKey, passPhrase)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not execute database statement: %v", err)
 	}
 	return nil
 }
 
-func (f *FluffDb) InsertUsers(userName string, password string, mode string) error {
+func (u *UserDb) InsertUsers(userName string, password string, mode string) error {
+	u.logger.Info("insert user to internal database")
 	// insert  user
-	statement, err := f.db.Prepare(sqlInsertUser)
+	statement, err := u.db.Prepare(sqlInsertUser)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not prepare database statement: %v", err)
 	}
 	defer func(statement *sql.Stmt) {
 		err = statement.Close()
@@ -116,15 +191,16 @@ func (f *FluffDb) InsertUsers(userName string, password string, mode string) err
 
 	_, err = statement.Exec(userName, password, mode)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not execute database statement: %v", err)
 	}
 	return nil
 }
 
-func (f *FluffDb) UpdateUserByName(username string, password string) error {
-	rows, err := f.db.Query("UPDATE users SET password = ? WHERE username = ?", password, username)
+func (u *UserDb) UpdateUserByName(username string, password string) error {
+	u.logger.Info("update user parameters")
+	rows, err := u.db.Query("UPDATE users SET password = ? WHERE username = ?", password, username)
 	if err != nil {
-		return err
+		return fmt.Errorf("user update failed: %v", err)
 	}
 	defer func(rows *sql.Rows) {
 		err = rows.Close()
@@ -135,12 +211,13 @@ func (f *FluffDb) UpdateUserByName(username string, password string) error {
 	return nil
 }
 
-func (f *FluffDb) GetPgpByName(value string) (*Pgp, error) {
+func (p *PgpDb) GetPgpByName(value string) (*Pgp, error) {
+	p.logger.Info("requesting from database pgp key by name")
 	var pgp Pgp
 	// select packages
-	rows, err := f.db.Query("SELECT key_name, private_key, public_key, passphrase FROM pgpkeys WHERE key_name = ?", value)
+	rows, err := p.db.Query("SELECT key_name, private_key, public_key, passphrase FROM pgpkeys WHERE key_name = ?", value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pgp key request failed: %v", err)
 	}
 	defer func(rows *sql.Rows) {
 		err = rows.Close()
@@ -153,15 +230,17 @@ func (f *FluffDb) GetPgpByName(value string) (*Pgp, error) {
 			return nil, fmt.Errorf("error reading pgp key: %v", err)
 		}
 	}
+	fmt.Println(pgp)
 	return &pgp, nil
 }
 
-func (f *FluffDb) GetUserByName(value string) (*User, error) {
+func (u *UserDb) GetUserByName(value string) (*User, error) {
+	u.logger.Info("requesting user from database by username")
 	var user User
 	// select packages
-	rows, err := f.db.Query("SELECT username, password, mode FROM users WHERE username = ?", value)
+	rows, err := u.db.Query("SELECT username, password, mode FROM users WHERE username = ?", value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("user request failed: %v", err)
 	}
 	defer func(rows *sql.Rows) {
 		err = rows.Close()
@@ -177,11 +256,12 @@ func (f *FluffDb) GetUserByName(value string) (*User, error) {
 	return &user, nil
 }
 
-func (f *FluffDb) DeletePgpByName(value string) error {
+func (p *PgpDb) DeletePgpByName(value string) error {
+	p.logger.Info("delete pgp key by name")
 	// select packages
-	rows, err := f.db.Query("DELETE FROM  pgpkeys WHERE key_name = ?", value)
+	rows, err := p.db.Query("DELETE FROM  pgpkeys WHERE key_name = ?", value)
 	if err != nil {
-		return err
+		return fmt.Errorf("pgp key delete request failed: %v", err)
 	}
 	defer func(rows *sql.Rows) {
 		err = rows.Close()
@@ -192,11 +272,12 @@ func (f *FluffDb) DeletePgpByName(value string) error {
 	return nil
 }
 
-func (f *FluffDb) DeleteUserByName(value string) error {
+func (u *UserDb) DeleteUserByName(value string) error {
+	u.logger.Info("delete user by username")
 	// select packages
-	rows, err := f.db.Query("DELETE FROM  users WHERE username = ?", value)
+	rows, err := u.db.Query("DELETE FROM  users WHERE username = ?", value)
 	if err != nil {
-		return err
+		return fmt.Errorf("user delete request failed: %v", err)
 	}
 	defer func(rows *sql.Rows) {
 		err = rows.Close()

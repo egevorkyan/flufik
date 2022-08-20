@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/config"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/jfrog/go-rpm"
 	"io"
 	"io/ioutil"
@@ -17,27 +18,36 @@ import (
 const repoDataPath = "repodata"
 
 type RpmRepo struct {
-	cfg *config.ServiceConfigBuilder
+	cfg       *config.ServiceConfigBuilder
+	logger    *logging.Logger
+	debugging string
 }
 
 var packageinfo = map[string]PackageInfos{}
 var repodata = map[string]RepoData{}
 
-func NewRpmBuilder(config *config.ServiceConfigBuilder) *RpmRepo {
-	return &RpmRepo{cfg: config}
+func NewRpmBuilder(config *config.ServiceConfigBuilder, logger *logging.Logger, debugging string) *RpmRepo {
+	return &RpmRepo{cfg: config, logger: logger, debugging: debugging}
 }
 
 // CreateBaseDir - creates base directory
 func (r *RpmRepo) CreateBaseDir() error {
+	if r.debugging == "1" {
+		r.logger.Info("create rpm repository base directory")
+	}
+	fmt.Println(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName))
 	err := r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create base directory: %v", err)
 	}
 	return nil
 }
 
 // ReindexPackages - reindex packages on repository server
 func (r *RpmRepo) ReindexPackages() error {
+	if r.debugging == "1" {
+		r.logger.Info("reindexing packages")
+	}
 	// reset settings
 	packageinfo = map[string]PackageInfos{}
 	repodata = map[string]RepoData{}
@@ -45,7 +55,7 @@ func (r *RpmRepo) ReindexPackages() error {
 	// find repos
 	elems, err := ioutil.ReadDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName))
 	if err != nil {
-		return err
+		return fmt.Errorf("failure occur during reading packages: %v", err)
 	}
 	for _, elem := range elems {
 		if elem.IsDir() {
@@ -60,7 +70,7 @@ func (r *RpmRepo) ReindexPackages() error {
 					// get sha256
 					file, err := os.Open(path)
 					if err != nil {
-						return err
+						return fmt.Errorf("can not open file: %v", err)
 					}
 					defer func(file *os.File) {
 						err = file.Close()
@@ -70,13 +80,13 @@ func (r *RpmRepo) ReindexPackages() error {
 					}(file)
 					hasher := sha256.New()
 					if _, err := io.Copy(hasher, file); err != nil {
-						return err
+						return fmt.Errorf("can not copy file to hasher: %v", err)
 					}
 					sumString := fmt.Sprintf("%x", hasher.Sum(nil))
 					// get rpm info
 					p, err := rpm.OpenPackageFile(path)
 					if err != nil {
-						return err
+						return fmt.Errorf("can not open rpm file: %v", err)
 					}
 					pi := PackageInfo{f.Name(), *p}
 					// store
@@ -91,7 +101,7 @@ func (r *RpmRepo) ReindexPackages() error {
 
 		repodata[repo], err = r.CreateRepoData(packageinfo[repo])
 		if err != nil {
-			return err
+			return fmt.Errorf("can not create repodata: %v", err)
 		}
 	}
 	return nil
@@ -99,10 +109,13 @@ func (r *RpmRepo) ReindexPackages() error {
 
 // SavePackage - saves uploaded package in repository
 func (r *RpmRepo) SavePackage(data io.Reader, pkg string) error {
+	if r.debugging == "1" {
+		r.logger.Info("saving package")
+	}
 	filePath := filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, pkg)
 	out, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not create file %v: %v", filePath, err)
 	}
 	defer func(out *os.File) {
 		err = out.Close()
@@ -112,7 +125,10 @@ func (r *RpmRepo) SavePackage(data io.Reader, pkg string) error {
 	}(out)
 
 	_, err = io.Copy(out, data)
-	return err
+	if err != nil {
+		return fmt.Errorf("can not copy package: %v", err)
+	}
+	return nil
 }
 
 // readRepos - reading repositories
@@ -122,6 +138,9 @@ func (r *RpmRepo) readRepos() error {
 
 // getPaths - building paths and returns paths
 func (r *RpmRepo) getPaths(supportedOs string) []string {
+	if r.debugging == "1" {
+		r.logger.Info("building path structure and returning value")
+	}
 	var paths []string
 	supported := strings.Split(supportedOs, " ")
 	for _, s := range supported {
@@ -133,19 +152,26 @@ func (r *RpmRepo) getPaths(supportedOs string) []string {
 
 // createDir - creates directories
 func (r *RpmRepo) createDir(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err = os.MkdirAll(path, 0755)
-		return err
+	if r.debugging == "1" {
+		r.logger.Info("create directory")
 	}
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+
 	return nil
 }
 
 func (r *RpmRepo) Repository(uploaded []byte, uploadedName string) error {
+	if r.debugging == "1" {
+		r.logger.Info("rpm repository")
+	}
 	sum := sha256.Sum256(uploaded)
 	sumString := fmt.Sprintf("%x", sum)
 	p, err := rpm.ReadPackageFile(bytes.NewBuffer(uploaded))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed reading rpm file: %v", err)
 	}
 	pi := PackageInfo{p.String(), *p}
 	err = r.SavePackage(bytes.NewBuffer(uploaded), uploadedName)
@@ -171,11 +197,14 @@ func (r *RpmRepo) Repository(uploaded []byte, uploadedName string) error {
 }
 
 func (r *RpmRepo) Dump(data RepoData) error {
+	if r.debugging == "1" {
+		r.logger.Info("dumping repository xml files")
+	}
 	for k, v := range data {
 		if strings.Contains(k, "gz") || strings.Contains(k, "repomd.xml") {
 			f, err := os.Create(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, repoDataPath, k))
 			if err != nil {
-				return err
+				return fmt.Errorf("can not create file: %v", err)
 			}
 			defer func(f *os.File) {
 				err = f.Close()
@@ -185,7 +214,7 @@ func (r *RpmRepo) Dump(data RepoData) error {
 			}(f)
 			_, err = f.Write(v)
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write to file: %v", err)
 			}
 		}
 	}

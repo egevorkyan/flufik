@@ -1,10 +1,10 @@
 package command
 
 import (
-	"fmt"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 type PgpFlufikRemoveCommand struct {
@@ -25,9 +25,15 @@ func NewPgpFlufikRemoveCommand() *PgpFlufikRemoveCommand {
 }
 
 func (c *PgpFlufikRemoveCommand) Run(command *cobra.Command, args []string) {
-	if err := crypto.RemovePgpKeyFromDB(c.pgpKeyName); err != nil {
-		logging.ErrorHandler("info: ", err)
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	if debuging == "1" {
+		logger.Info("remove pgp key")
+	}
+	p := pgp.NewImportPGP(logger, debuging)
+	if err := p.RemovePgpKeyFromDB(c.pgpKeyName); err != nil {
+		logger.Errorf("pgp key removal process failed: %v", err)
 	} else {
-		logging.ErrorHandler("info: ", fmt.Errorf("successfully removed"))
+		logger.Info("pgp key successfully removed")
 	}
 }

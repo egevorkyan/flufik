@@ -1,10 +1,10 @@
 package command
 
 import (
-	"fmt"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 type FlufikPgpImportCommand struct {
@@ -31,10 +31,16 @@ func NewFlufikImportPgpKey() *FlufikPgpImportCommand {
 }
 
 func (c *FlufikPgpImportCommand) Run(command *cobra.Command, args []string) {
-	if c.passPhrase == "" {
-		logging.ErrorHandler("message: ", fmt.Errorf("only pgp key with passphrase is accepted"))
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	if debuging == "1" {
+		logger.Info("import pgp key")
 	}
-	if err := crypto.ImportPgpKeys(c.name, c.privateKey, c.publicKey, c.passPhrase); err != nil {
-		logging.ErrorHandler("fatal: %w", err)
+	if c.passPhrase == "" {
+		logger.Errorf("only pgp key with passphrase is accepted")
+	}
+	p := pgp.NewImportPGP(logger, debuging)
+	if err := p.ImportPgpKeys(c.name, c.privateKey, c.publicKey, c.passPhrase); err != nil {
+		logger.Errorf("fatal: %v", err)
 	}
 }

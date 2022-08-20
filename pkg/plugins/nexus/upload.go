@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,13 +19,19 @@ type FlufikNexus struct {
 	path         string
 	nxcomponent  string
 	nxrepository string
+	logger       *logging.Logger
+	debugging    string
 }
 
 func (fn *FlufikNexus) FlufikNexusUpload() error {
+	if fn.debugging == "1" {
+		fn.logger.Info("uploading to nexus repository")
+	}
 	requestUrl := fmt.Sprintf("%s/service/rest/v1/components?repository=%s", fn.repoUrl, fn.nxrepository)
-	pkg, err := os.Open(core.FlufikPkgFilePath(fn.pkgName, fn.path))
+	p := core.FlufikPkgFilePath(fn.pkgName, fn.path)
+	pkg, err := os.Open(p)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not create file: %v", err)
 	}
 	pkgType := core.CheckPackage(fn.pkgName)
 
@@ -41,6 +48,9 @@ func (fn *FlufikNexus) FlufikNexusUpload() error {
 }
 
 func (fn *FlufikNexus) debUpload(pkg *os.File, requestUrl string) error {
+	if fn.debugging == "1" {
+		fn.logger.Info("debian package upload")
+	}
 	body := &bytes.Buffer{}
 	w := multipart.NewWriter(body)
 	mpart, err := w.CreateFormFile("apt.asset", fn.pkgName)
@@ -75,6 +85,9 @@ func (fn *FlufikNexus) debUpload(pkg *os.File, requestUrl string) error {
 }
 
 func (fn *FlufikNexus) rpmUpload(pkg *os.File, requestUrl string) error {
+	if fn.debugging == "1" {
+		fn.logger.Info("rpm package upload")
+	}
 	body := &bytes.Buffer{}
 	w := multipart.NewWriter(body)
 	mpart, err := w.CreateFormFile("yum.asset", fn.pkgName)
@@ -113,7 +126,7 @@ func (fn *FlufikNexus) rpmUpload(pkg *os.File, requestUrl string) error {
 	return nil
 }
 
-func NewNexusUpload(repoUser, repoPwd, repoUrl, packageName, path, nxcomponent, nxrepository string) *FlufikNexus {
+func NewNexusUpload(repoUser, repoPwd, repoUrl, packageName, path, nxcomponent, nxrepository string, logger *logging.Logger, debugging string) *FlufikNexus {
 	n := &FlufikNexus{
 		repoUser:     repoUser,
 		repoPwd:      repoPwd,
@@ -122,6 +135,8 @@ func NewNexusUpload(repoUser, repoPwd, repoUrl, packageName, path, nxcomponent, 
 		path:         path,
 		nxcomponent:  nxcomponent,
 		nxrepository: nxrepository,
+		logger:       logger,
+		debugging:    debugging,
 	}
 	return n
 }

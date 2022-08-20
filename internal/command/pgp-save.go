@@ -1,11 +1,11 @@
 package command
 
 import (
-	"fmt"
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 type PgpFlufikDumpCommand struct {
@@ -17,8 +17,8 @@ type PgpFlufikDumpCommand struct {
 func NewPgpFlufikSaveCommand() *PgpFlufikDumpCommand {
 	c := &PgpFlufikDumpCommand{
 		command: &cobra.Command{
-			Use:   "save",
-			Short: "saves pgp key to file if required, passphrase will be printed on screen",
+			Use:   "export",
+			Short: "export pgp key to file if required, passphrase will be printed on screen",
 		},
 	}
 	c.command.Flags().StringVarP(&c.pgpKeyName, "name", "n", "", "Provide key name to save")
@@ -28,9 +28,15 @@ func NewPgpFlufikSaveCommand() *PgpFlufikDumpCommand {
 }
 
 func (c *PgpFlufikDumpCommand) Run(command *cobra.Command, args []string) {
-	if err := crypto.SavePgpKeyToFile(c.pgpKeyName, c.location); err != nil {
-		logging.ErrorHandler("info: ", err)
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	if debuging == "1" {
+		logger.Info("exporting pgp key")
+	}
+	p := pgp.NewImportPGP(logger, debuging)
+	if err := p.SavePgpKeyToFile(c.pgpKeyName, c.location); err != nil {
+		logger.Errorf("error occured during export pgp key: %v", err)
 	} else {
-		logging.ErrorHandler("info: ", fmt.Errorf("successfully saved"))
+		logger.Info("successfully saved")
 	}
 }

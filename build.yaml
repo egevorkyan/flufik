@@ -9,6 +9,7 @@ env:
   REPO_NAME: eduard1001171985
   IMG_NAME: flufik
   FLUFIK_PACKAGE: flufik
+  QUAY_REPO_NAME: quay.io/rhlcloud/flufik
 
 
 functions:
@@ -71,9 +72,10 @@ functions:
   - name: build-image
     description: builds and push docker image
     run:
-      - art run $(build-linux)
-      - docker build -f Docker/Dockerfile -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} .
-      - docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
+      #- art run $(build-linux)
+      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} -t ${REPO_NAME}/${IMG_NAME}:latest .
+      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${QUAY_REPO_NAME}:${ARTISAN_REF} -t ${QUAY_REPO_NAME}:latest .
+      #- docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
         #- docker push ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF}
         #- docker push ${REPO_NAME}/${IMG_NAME}:latest
-      - rm Docker/flufik
+      #- rm Docker/flufik

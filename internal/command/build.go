@@ -8,6 +8,7 @@ import (
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/spf13/cobra"
 	"os"
+	"path"
 )
 
 type BuildFlufikCommand struct {
@@ -32,43 +33,61 @@ func NewFlufikBuildCommand() *BuildFlufikCommand {
 }
 
 func (c *BuildFlufikCommand) Run(command *cobra.Command, args []string) {
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	if debuging == "1" {
+		logger.Info("build packages")
+	}
 	pkgInfoLoader, err := flufikinfo.LoadPackageInfo(c.buildConfigPath, c.destDir)
 	if err != nil {
-		logging.ErrorHandler("can't load configuration file error: ", err)
+		logger.Errorf("can't load configuration file error: %v", err)
 	}
 	switch c.buildPack {
 	case "rpm":
-		if err = buildFlufikPackage(flufikbuilder.NewFlufikRpmBuilder(pkgInfoLoader), c.destDir); err != nil {
-			logging.ErrorHandler("rpm package not build error: ", err)
+		if err = buildFlufikPackage(flufikbuilder.NewFlufikRpmBuilder(pkgInfoLoader, logger, debuging), c.destDir); err != nil {
+			logger.Errorf("rpm package not build error: %v", err)
 		}
 	case "deb":
-		if err = buildFlufikPackage(flufikbuilder.NewFlufikDebBuilder(pkgInfoLoader), c.destDir); err != nil {
-			logging.ErrorHandler("deb package not build error: ", err)
+		if err = buildFlufikPackage(flufikbuilder.NewFlufikDebBuilder(pkgInfoLoader, logger, debuging), c.destDir); err != nil {
+			logger.Errorf("deb package not build error: %v", err)
 		}
 	}
 }
 
 func buildFlufikPackage(flufikBuilder flufikbuilder.FlufikPackageBuilder, directory string) error {
 	var pkgFile *os.File
-	if pkgPath, err := flufikBuilder.FileName(); err == nil {
-		//pkgPath = path.Join(directory, pkgPath)
-		p := core.FlufikPkgFilePath(pkgPath, directory)
-
-		if pkgFile, err = os.Create(p); err != nil {
+	var dst string
+	pkgPath, err := flufikBuilder.FileName()
+	if err != nil {
+		return err
+	}
+	if path.IsAbs(directory) {
+		dst = directory
+	} else {
+		dst = path.Join(core.FlufikCurrentDir(), directory)
+	}
+	if _, err = os.Stat(dst); os.IsNotExist(err) {
+		err = os.MkdirAll(dst, 0755)
+		if err != nil {
 			return err
 		}
-	} else {
+	}
+	p := core.FlufikPkgFilePath(pkgPath, dst)
+	if err != nil {
+		return err
+	}
+	if pkgFile, err = os.Create(p); err != nil {
 		return err
 	}
 	defer func() { _ = pkgFile.Close() }()
 
 	pkgWriter := bufio.NewWriter(pkgFile)
 
-	if err := flufikBuilder.Build(pkgWriter); err != nil {
+	if err = flufikBuilder.Build(pkgWriter); err != nil {
 		return err
 	}
 
-	if err := pkgWriter.Flush(); err != nil {
+	if err = pkgWriter.Flush(); err != nil {
 		return err
 	}
 	return nil

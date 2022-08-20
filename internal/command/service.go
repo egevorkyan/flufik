@@ -1,19 +1,18 @@
 package command
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/internal/handlers"
 	"github.com/egevorkyan/flufik/pkg/config"
 	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/plugins/debrepository"
+	"github.com/egevorkyan/flufik/pkg/plugins/installer"
 	"github.com/egevorkyan/flufik/pkg/plugins/rpmrepository"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/cobra"
-	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,39 +34,47 @@ func NewFlufikServiceCommand() *ServiceFlufikCommand {
 }
 
 func (c *ServiceFlufikCommand) Run(command *cobra.Command, args []string) {
-	if err := startService(); err != nil {
-		logging.ErrorHandler("fatal: ", err)
+	logger := logging.GetLogger()
+	debuging := os.Getenv("FLUFIK_DEBUG")
+	if debuging == "1" {
+		logger.Info("repository service")
+	}
+	if err := startService(logger, debuging); err != nil {
+		logger.Fatalf("fatal: %v", err)
 	}
 
 }
 
-func startService() error {
-	fmt.Println("Service Started!!!")
-	cfg := config.GetServiceConfiguration()
-	deb := debrepository.NewServiceConfiguration(cfg)
-	yum := rpmrepository.NewRpmBuilder(cfg)
-	if err := crypto.GenerateKey(cfg.PrivateKeyName, "", "", "", 0); err != nil {
+func startService(logger *logging.Logger, debugging string) error {
+	cfg, err := config.GetServiceConfiguration(logger, debugging)
+	if err != nil {
+		return err
+	}
+	deb := debrepository.NewServiceConfiguration(cfg, logger, debugging)
+	yum := rpmrepository.NewRpmBuilder(cfg, logger, debugging)
+	p := pgp.NewImportPGP(logger, debugging)
+	if err = os.MkdirAll(filepath.Join(core.FlufikServiceWebHome(cfg.RootRepoPath), "public"), 0755); err != nil {
+		return fmt.Errorf("can not create directory: %v", err)
+	}
+	if err = p.PublishPublicPGP(filepath.Join(core.FlufikServiceWebHome(cfg.RootRepoPath), "public"), "flufik"); err != nil {
 		return err
 	}
 
-	if err := publishPublicKey(core.FlufikServiceWebHome(cfg.RootRepoPath), cfg.PrivateKeyName); err != nil {
+	if err = getRepoInfo(core.FlufikServiceWebHome(cfg.RootRepoPath), cfg.RpmRepositoryName, cfg.PublicUrl); err != nil {
 		return err
 	}
-	if err := getRepoInfo(core.FlufikServiceWebHome(cfg.RootRepoPath), cfg.RpmRepositoryName); err != nil {
+	//if cfg.EnableDirectoryWatching {
+	//	if err := deb.DirectoryWatch(); err != nil {
+	//		return err
+	//	}
+	//}
+	if err = deb.CreateDirectories(); err != nil {
 		return err
 	}
-	if cfg.EnableDirectoryWatching {
-		if err := deb.DirectoryWatch(); err != nil {
-			return err
-		}
-	}
-	if err := deb.CreateDirectories(); err != nil {
+	if err = yum.CreateBaseDir(); err != nil {
 		return err
 	}
-	if err := yum.CreateBaseDir(); err != nil {
-		return err
-	}
-	handler := handlers.New(cfg, deb, yum)
+	handler := handlers.New(cfg, deb, yum, core.FlufikServiceWebHome(cfg.RootRepoPath), logger, debugging)
 
 	//Router start
 	handler.SetupGoGuardian()
@@ -78,66 +85,22 @@ func startService() error {
 	router.HandleFunc("/user/update/{username}", handler.Middleware(handler.GetHandler(handler.UpdateUser))).Methods("POST")
 	router.HandleFunc("/user/delete/{username}", handler.Middleware(handler.GetHandler(handler.DeleteUser))).Methods("POST")
 	chain := alice.New().Then(router)
-	if cfg.EnableSSL {
-		if err := http.ListenAndServeTLS(":"+cfg.ListenPort, filepath.Join(core.FlufikServiceConfigurationHome(), "server.crt"), filepath.Join(core.FlufikServiceConfigurationHome(), "server.key"), chain); err != nil {
-			return err
-		}
-	} else {
-		if err := http.ListenAndServe(":"+cfg.ListenPort, chain); err != nil {
-			return err
-		}
+	if err = http.ListenAndServe(":"+cfg.ListenPort, chain); err != nil {
+		return err
 	}
+	logger.Info("service started")
 	return nil
 }
 
-func publishPublicKey(path string, keyName string) error {
-	if err := os.MkdirAll(filepath.Join(path, "public"), 0755); err != nil {
-		return err
-	}
-	if err := crypto.PublishPublicPGP(filepath.Join(path, "public"), keyName); err != nil {
-		return err
-	}
-	return nil
-}
-
-func getRepoInfo(path string, repoName string) error {
-	proto := "http(s)"
-	data := struct {
-		Reponame string
-		URL      string
-	}{
-		Reponame: repoName,
-		URL:      proto + "://fdqn/" + repoName + "/",
-	}
-	t := `[{{.Reponame}}]
-name={{.Reponame}}
-baseurl={{.URL}}
-enabled=1
-gpgcheck=0
-priority=1`
-	templ, err := template.New("repofile").Parse(t)
-	if err != nil {
-		return err
-	}
-	var n bytes.Buffer
-	err = templ.Execute(&n, data)
-	if err != nil {
-		return err
-	}
-	f, err := os.Create(filepath.Join(path, "public", "howto.txt"))
-	if err != nil {
-		return err
-	}
-	defer func(f *os.File) {
-		err = f.Close()
+func getRepoInfo(path string, repoName string, publicUrl string) error {
+	i := installer.NewInstaller(repoName, publicUrl)
+	if _, err := os.Stat(filepath.Join(path, "install")); os.IsNotExist(err) {
+		err = os.MkdirAll(filepath.Join(path, "install"), 0755)
 		if err != nil {
-			return
+			return err
 		}
-	}(f)
-
-	dRepo := fmt.Sprintf("Debian Based Repository configuration:\nExample: deb %s://fqdn/ stable main\n\nRedHat Based Repository configuration:\n%s", proto, n.String())
-
-	_, err = fmt.Fprint(f, dRepo)
+	}
+	err := i.GenerateShell(filepath.Join(path, "install"))
 	if err != nil {
 		return err
 	}

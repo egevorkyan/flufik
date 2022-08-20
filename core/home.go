@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/user"
@@ -11,16 +10,16 @@ import (
 const (
 	FLUFIKHOME             = ".flufik"
 	FLUFIKKEYSDIR          = "keys"
-	FLUFIKDB               = "flufik.db"
+	USERDB                 = "user.db"
+	PGPDB                  = "pgp.db"
 	FLUFIKLOGGINGDIR       = "logs"
 	FLUFIKPKGCONFIGDIR     = "configs" //yaml configuration file or template, to build based on that package
 	FLUFIKPKGOUTPUTDIR     = "output"
 	FLUFIKLOGGINGFILE      = "all.log"
 	FLUFIKSERVICECONFIGDIR = "service"
 	FLUFIKSERVICEWEB       = "flufikweb"
-	FLUFIKKEYDBTYPE        = "kvdb"
-	FLUFIKAPPDBTYPE        = "app"
 	FLUFIKROOTPATH         = "/opt/flufik"
+	FLUFIKNOSQLDB          = "flufikdb"
 )
 
 func Home() string {
@@ -55,20 +54,20 @@ func FlufikLoggingFilePath() string {
 	return filepath.Join(FlufikLoggingHome(), FLUFIKLOGGINGFILE)
 }
 
-func FlufikKeyFileName(private, public, extention string) (string, string) {
-	return filepath.Join(FlufikKeysHome(), fmt.Sprintf("%s.%s", private, extention)), filepath.Join(FlufikKeysHome(), fmt.Sprintf("%s.%s", public, extention))
+func FlufikUserDbPath() string {
+	return filepath.Join(FlufikKeysHome(), USERDB)
 }
 
-func FlufikKeyFilePath(name string) string {
-	return filepath.Join(FlufikKeysHome(), name)
+func FlufikPgpDbPath() string {
+	return filepath.Join(FlufikKeysHome(), PGPDB)
 }
 
-func FlufikDbPath() string {
-	return filepath.Join(FlufikKeysHome(), FLUFIKDB)
+func FlufikNoSqlDbPath() string {
+	return filepath.Join(FlufikKeysHome(), FLUFIKNOSQLDB)
 }
 
-func FlufikPkgFilePath(pkg, path string) string {
-	return filepath.Join(path, pkg)
+func FlufikPkgFilePath(pkg, dirPath string) string {
+	return filepath.Join(dirPath, pkg)
 }
 
 func FlufikServiceConfigurationHome() string {

@@ -8,12 +8,12 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/blakesmith/ar"
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/crypto"
+	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/pkg/config"
+	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/fsnotify/fsnotify"
 	"github.com/ulikunitz/xz/lzma"
 	"io"
@@ -41,11 +41,15 @@ const (
 type DebRepository struct {
 	serviceConfig    *config.ServiceConfigBuilder
 	directoryWatcher *fsnotify.Watcher
+	logger           *logging.Logger
+	debugging        string
 }
 
-func NewServiceConfiguration(config *config.ServiceConfigBuilder) *DebRepository {
+func NewServiceConfiguration(config *config.ServiceConfigBuilder, logger *logging.Logger, debugging string) *DebRepository {
 	return &DebRepository{
 		serviceConfig: config,
+		logger:        logger,
+		debugging:     debugging,
 	}
 }
 
@@ -54,6 +58,9 @@ func (s *DebRepository) ArchPath(distro string, section string, arch string) str
 }
 
 func (s *DebRepository) CreateDirectories() error {
+	if s.debugging == "1" {
+		s.logger.Info("create debian repository structure")
+	}
 	for _, distro := range s.serviceConfig.DistroNames {
 		for _, arch := range s.serviceConfig.SupportArch {
 			for _, section := range s.serviceConfig.Sections {
@@ -66,11 +73,11 @@ func (s *DebRepository) CreateDirectories() error {
 						return fmt.Errorf("error inspecting %s (%s): %s", distro, arch, err)
 					}
 				}
-				if s.serviceConfig.EnableDirectoryWatching {
-					if err := s.directoryWatcher.Add(s.ArchPath(distro, section, arch)); err != nil {
-						return err
-					}
-				}
+				//if s.serviceConfig.EnableDirectoryWatching {
+				//	if err := s.directoryWatcher.Add(s.ArchPath(distro, section, arch)); err != nil {
+				//		return err
+				//	}
+				//}
 			}
 		}
 	}
@@ -78,20 +85,23 @@ func (s *DebRepository) CreateDirectories() error {
 }
 
 func (s *DebRepository) RebuildRepoMetadata(filePath string) error {
+	if s.debugging == "1" {
+		s.logger.Info("rebuild repository metadata")
+	}
 	distroArch := destructPath(filePath)
 	if err := s.createPackageGz(distroArch[0], distroArch[1], distroArch[2]); err != nil {
 		return err
 	}
-	if s.serviceConfig.EnableSigning {
-		if err := s.createRelease(distroArch[0]); err != nil {
-			return err
-		}
-
+	if err := s.createRelease(distroArch[0]); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (s *DebRepository) createRelease(distro string) error {
+	if s.debugging == "1" {
+		s.logger.Info("create release")
+	}
 	workingDirectory := filepath.Join(core.FlufikServiceWebHome(s.serviceConfig.RootRepoPath), aptRepos, distro)
 
 	outFile, err := os.Create(filepath.Join(workingDirectory, "Release"))
@@ -108,23 +118,23 @@ func (s *DebRepository) createRelease(distro string) error {
 	currentTime := time.Now().UTC()
 	_, err = fmt.Fprintf(outFile, "Suite: %s\n", distro)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = fmt.Fprintf(outFile, "Codename: %s\n", distro)
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = fmt.Fprintf(outFile, "Components: %s\n", strings.Join(s.serviceConfig.Sections, " "))
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = fmt.Fprintf(outFile, "Architectures: %s\n", strings.Join(s.serviceConfig.SupportArch, " "))
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = fmt.Fprintf(outFile, "Date: %s\n", currentTime.Format("Mon, 02 Jan 2006 15:04:05 UTC"))
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 
 	var md5Sums strings.Builder
@@ -174,30 +184,32 @@ func (s *DebRepository) createRelease(distro string) error {
 
 	_, err = outFile.WriteString("MD5Sum:\n")
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = outFile.WriteString(md5Sums.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = outFile.WriteString("SHA1:\n")
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = outFile.WriteString(sha1Sums.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = outFile.WriteString("SHA256:\n")
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 	_, err = outFile.WriteString(sha256Sums.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("can not write file: %v", err)
 	}
 
-	if err = crypto.SignRelease(s.serviceConfig.PrivateKeyName, outFile.Name()); err != nil {
+	signer := pgp.NewSigner(s.logger, s.debugging)
+
+	if err = signer.SignRelease("flufik", outFile.Name()); err != nil {
 		return fmt.Errorf("error signing release file: %s", err)
 	}
 
@@ -205,6 +217,9 @@ func (s *DebRepository) createRelease(distro string) error {
 }
 
 func (s *DebRepository) createPackageGz(distro string, section string, arch string) error {
+	if s.debugging == "1" {
+		s.logger.Info("create package.gz")
+	}
 	packageFile, err := os.Create(filepath.Join(s.ArchPath(distro, section, arch), "Packages"))
 	if err != nil {
 		return fmt.Errorf("failed to create Packages: %s", err)
@@ -213,10 +228,25 @@ func (s *DebRepository) createPackageGz(distro string, section string, arch stri
 	if err != nil {
 		return fmt.Errorf("failed to create Packages.gz: %s", err)
 	}
-	defer packageFile.Close()
-	defer packageGzFile.Close()
+	defer func(packageFile *os.File) {
+		err := packageFile.Close()
+		if err != nil {
+			return
+		}
+	}(packageFile)
+	defer func(packageGzFile *os.File) {
+		err := packageGzFile.Close()
+		if err != nil {
+			return
+		}
+	}(packageGzFile)
 	gzOut := gzip.NewWriter(packageGzFile)
-	defer gzOut.Close()
+	defer func(gzOut *gzip.Writer) {
+		err := gzOut.Close()
+		if err != nil {
+			return
+		}
+	}(gzOut)
 
 	writer := io.MultiWriter(packageFile, gzOut)
 
@@ -230,21 +260,21 @@ func (s *DebRepository) createPackageGz(distro string, section string, arch stri
 			debPath := filepath.Join(s.ArchPath(distro, section, arch), debFile.Name())
 			tempControlData, err := inspectPackage(debPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("package inspection failed: %v", err)
 			}
 			packageBuffer.WriteString(tempControlData)
 			dir := filepath.ToSlash(filepath.Join(aptRepos, distro, section, "binary-"+arch, debFile.Name()))
 			_, err = fmt.Fprintf(&packageBuffer, "Filename: %s\n", dir)
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			_, err = fmt.Fprintf(&packageBuffer, "Size: %d\n", debFile.Size())
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			f, err := os.Open(debPath)
 			if err != nil {
-				log.Println("error opening deb file: ", err)
+				return fmt.Errorf("error opening deb file: %v", err)
 			}
 			defer func(f *os.File) {
 				err = f.Close()
@@ -264,22 +294,22 @@ func (s *DebRepository) createPackageGz(distro string, section string, arch stri
 			}
 			_, err = fmt.Fprintf(&packageBuffer, "MD5sum: %s\n", hex.EncodeToString(md5hash.Sum(nil)))
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			_, err = fmt.Fprintf(&packageBuffer, "SHA1: %s\n", hex.EncodeToString(sha1hash.Sum(nil)))
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			_, err = fmt.Fprintf(&packageBuffer, "SHA256: %s\n", hex.EncodeToString(sha256hash.Sum(nil)))
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			if i != (len(dirList) - 1) {
 				packageBuffer.WriteString("\n\n")
 			}
 			_, err = writer.Write(packageBuffer.Bytes())
 			if err != nil {
-				return err
+				return fmt.Errorf("can not write file: %v", err)
 			}
 			f = nil
 		}
@@ -296,9 +326,8 @@ func destructPath(filePath string) []string {
 	return []string{distro, section, archSplit[1]}
 }
 
-func inspectPackageControl(compression Compression, fileName bytes.Buffer) (string, error) {
+func inspectPackageControl(compression Compression, fileName bytes.Buffer) (result string, err error) {
 	var tarReader *tar.Reader
-	var err error
 	switch compression {
 	case GZIP:
 		var compressedFile *gzip.Reader
@@ -332,16 +361,15 @@ func inspectPackageControl(compression Compression, fileName bytes.Buffer) (stri
 			case "control", "./control":
 				_, err = io.Copy(&controlBuffer, tarReader)
 				if err != nil {
-					return "", err
+					return "", fmt.Errorf("can not copy file: %v", err)
 				}
 				return strings.TrimRight(controlBuffer.String(), "\n") + "\n", nil
 			}
 		default:
-			log.Printf("Unable to figure out type : %c in file %s\n", header.Typeflag, name)
+			return "", fmt.Errorf("Unable to figure out type : %c in file %s\n", header.Typeflag, name)
 		}
 	}
-	err = nil
-	return "", err
+	return "", nil
 }
 
 func inspectPackage(fileName string) (string, error) {
@@ -374,8 +402,7 @@ func inspectPackage(fileName string) (string, error) {
 			} else if strings.TrimRight(header.Name, "/") == "control.tar.xz" {
 				compression = LZMA
 			} else {
-				err := errors.New("No control file found")
-				return "", err
+				return "", fmt.Errorf("%s", "No control file found")
 			}
 			_, err := io.Copy(&controlBuffer, arReader)
 			if err != nil {
@@ -390,8 +417,7 @@ func inspectPackage(fileName string) (string, error) {
 func (s *DebRepository) DirectoryWatch() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal("error creating fswatcher: ", err)
-		return err
+		return fmt.Errorf("error creating fswatcher: %v", err)
 	}
 	go func() {
 		for {

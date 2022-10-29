@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"io"
 	"net/http"
 )
@@ -19,14 +18,9 @@ type JFrog struct {
 	component    string
 	architecture string
 	repoName     string
-	logger       *logging.Logger
-	debugging    string
 }
 
 func (j *JFrog) FlufikJFrogUpload() error {
-	if j.debugging == "1" {
-		j.logger.Info("uploading to jfrog repository")
-	}
 	var requestUrl string
 	pkgFile, err := core.OpenFile(j.packageName, j.path)
 	if err != nil {
@@ -41,7 +35,7 @@ func (j *JFrog) FlufikJFrogUpload() error {
 	} else {
 		return fmt.Errorf("failure: %s", pkg)
 	}
-	h := crypto.NewHash(pkgFile.Name(), j.logger, j.debugging)
+	h := crypto.NewHash(pkgFile.Name())
 	checksum, err := h.CheckSum()
 	if err != nil {
 		return fmt.Errorf("no checksum %v", err)
@@ -74,7 +68,7 @@ func (j *JFrog) FlufikJFrogUpload() error {
 	return nil
 }
 
-func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, component, architecture, repoName string, logger *logging.Logger, debugging string) *JFrog {
+func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, component, architecture, repoName string) *JFrog {
 	j := &JFrog{
 		repoUser:     repoUser,
 		repoPwd:      repoPwd,
@@ -85,8 +79,6 @@ func NewUpload(repoUser, repoPwd, repoUrl, packageName, path, distribution, comp
 		component:    component,
 		architecture: architecture,
 		repoName:     repoName,
-		logger:       logger,
-		debugging:    debugging,
 	}
 	return j
 }

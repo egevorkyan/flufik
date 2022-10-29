@@ -6,9 +6,7 @@ import (
 	"github.com/egevorkyan/flufik/core"
 	plugin "github.com/egevorkyan/flufik/crypto"
 	"github.com/egevorkyan/flufik/crypto/encoder"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/nosql"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -26,16 +24,14 @@ const (
 )
 
 type pgpKey struct {
-	name      string
-	email     string
-	comment   string
-	keyType   string
-	bits      int
-	logger    *logging.Logger
-	debugging string
+	name    string
+	email   string
+	comment string
+	keyType string
+	bits    int
 }
 
-func NewPGP(name, email, comment, keyType string, bits int, logger *logging.Logger, debugging string) *pgpKey {
+func NewPGP(name, email, comment, keyType string, bits int) *pgpKey {
 	if name == "" {
 		h, _ := os.Hostname()
 		name = fmt.Sprintf("flufik-%s", h)
@@ -53,35 +49,24 @@ func NewPGP(name, email, comment, keyType string, bits int, logger *logging.Logg
 		comment = fmt.Sprintf("Flufik - Type: %s %v Bits", keyType, bits)
 	}
 	return &pgpKey{
-		name:      name,
-		email:     email,
-		comment:   comment,
-		keyType:   keyType,
-		bits:      bits,
-		logger:    logger,
-		debugging: debugging,
+		name:    name,
+		email:   email,
+		comment: comment,
+		keyType: keyType,
+		bits:    bits,
 	}
 }
 
-func NewImportPGP(logger *logging.Logger, debugging string) *pgpKey {
-	return &pgpKey{
-		logger:    logger,
-		debugging: debugging,
-	}
+func NewImportPGP() *pgpKey {
+	return &pgpKey{}
 }
 
 func (p *pgpKey) GeneratePgpKey() error {
-	if p.debugging == "1" {
-		p.logger.Info("Generate PGP Key password")
-	}
-	pwd := plugin.NewPwdGen(15, 3, 4, 3, p.logger, p.debugging)
+	pwd := plugin.NewPwdGen(15, 3, 4, 3)
 
 	pass, err := pwd.PasswordGenerator()
 	if err != nil {
 		return err
-	}
-	if p.debugging == "1" {
-		p.logger.Info("Generating PGP Key")
 	}
 	key, err := crypto.GenerateKey(p.name, p.email, p.keyType, p.bits)
 	if err != nil {
@@ -109,7 +94,7 @@ func (p *pgpKey) GeneratePgpKey() error {
 
 func (p *pgpKey) StoreKeysToDb(keyName string, publicKey string, privateKey string, pwd string) error {
 	data := make(map[string]interface{})
-	e := encoder.NewEncoder(p.logger, p.debugging)
+	e := encoder.NewEncoder()
 	encodedPrivateKey := string(e.B64Encoder(privateKey))
 	encodedPublicKey := string(e.B64Encoder(publicKey))
 	encodedPwd := string(e.B64Encoder(pwd))
@@ -117,7 +102,7 @@ func (p *pgpKey) StoreKeysToDb(keyName string, publicKey string, privateKey stri
 	data["PrivateKey"] = encodedPrivateKey
 	data["PublicKey"] = encodedPublicKey
 	data["PassPhrase"] = encodedPwd
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, p.logger, p.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -129,10 +114,7 @@ func (p *pgpKey) StoreKeysToDb(keyName string, publicKey string, privateKey stri
 }
 
 func (p *pgpKey) SavePgpKeyToFile(pgpKeyName string, location string) error {
-	if p.debugging == "1" {
-		p.logger.Info("exporting pgp key to file")
-	}
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, p.logger, p.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -157,11 +139,8 @@ func (p *pgpKey) SavePgpKeyToFile(pgpKeyName string, location string) error {
 }
 
 func (p *pgpKey) ImportPgpKeys(name, private, public, passPhrase string) error {
-	if p.debugging == "1" {
-		p.logger.Info("importing pgp key")
-	}
 	data := make(map[string]interface{})
-	e := encoder.NewEncoder(p.logger, p.debugging)
+	e := encoder.NewEncoder()
 
 	privateEncoded, err := p.readFile(private)
 	if err != nil {
@@ -178,7 +157,7 @@ func (p *pgpKey) ImportPgpKeys(name, private, public, passPhrase string) error {
 	data["PrivateKey"] = privateKeyEncoded
 	data["PublicKey"] = publicKeyEncoded
 	data["PassPhrase"] = privatePwd
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, p.logger, p.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -200,7 +179,7 @@ func (p *pgpKey) ImportPgpKeys(name, private, public, passPhrase string) error {
 }
 
 func (p *pgpKey) RemovePgpKeyFromDB(keyName string) error {
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, p.logger, p.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -220,7 +199,7 @@ func (p *pgpKey) RemovePgpKeyFromDB(keyName string) error {
 }
 
 func (p *pgpKey) PublishPublicPGP(filePath string, keyName string) error {
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, p.logger, p.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -239,27 +218,21 @@ func (p *pgpKey) PublishPublicPGP(filePath string, keyName string) error {
 }
 
 func (p *pgpKey) saveToFile(fileName string, encoded []byte) error {
-	if p.debugging == "1" {
-		p.logger.Info("saving pgp keys to file")
-	}
-	e := encoder.NewEncoder(p.logger, p.debugging)
+	e := encoder.NewEncoder()
 	//decode to normal view
 	decodedData, err := e.B64Decoder(string(encoded))
 	if err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(fileName, decodedData, os.ModePerm); err != nil {
+	if err = os.WriteFile(fileName, decodedData, os.ModePerm); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (p *pgpKey) readFile(path string) ([]byte, error) {
-	if p.debugging == "1" {
-		p.logger.Info("read pgp key file")
-	}
-	e := encoder.NewEncoder(p.logger, p.debugging)
-	data, err := ioutil.ReadFile(path)
+	e := encoder.NewEncoder()
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

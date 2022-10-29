@@ -6,7 +6,7 @@ import (
 	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/internal/handlers"
 	"github.com/egevorkyan/flufik/pkg/config"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/egevorkyan/flufik/pkg/plugins/debrepository"
 	"github.com/egevorkyan/flufik/pkg/plugins/installer"
 	"github.com/egevorkyan/flufik/pkg/plugins/rpmrepository"
@@ -34,25 +34,20 @@ func NewFlufikServiceCommand() *ServiceFlufikCommand {
 }
 
 func (c *ServiceFlufikCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("repository service")
-	}
-	if err := startService(logger, debuging); err != nil {
-		logger.Fatalf("fatal: %v", err)
+	if err := startService(); err != nil {
+		logger.RaiseErr("fatal", err)
 	}
 
 }
 
-func startService(logger *logging.Logger, debugging string) error {
-	cfg, err := config.GetServiceConfiguration(logger, debugging)
+func startService() error {
+	cfg, err := config.GetServiceConfiguration()
 	if err != nil {
 		return err
 	}
-	deb := debrepository.NewServiceConfiguration(cfg, logger, debugging)
-	yum := rpmrepository.NewRpmBuilder(cfg, logger, debugging)
-	p := pgp.NewImportPGP(logger, debugging)
+	deb := debrepository.NewServiceConfiguration(cfg)
+	yum := rpmrepository.NewRpmBuilder(cfg)
+	p := pgp.NewImportPGP()
 	if err = os.MkdirAll(filepath.Join(core.FlufikServiceWebHome(cfg.RootRepoPath), "public"), 0755); err != nil {
 		return fmt.Errorf("can not create directory: %v", err)
 	}
@@ -74,13 +69,14 @@ func startService(logger *logging.Logger, debugging string) error {
 	if err = yum.CreateBaseDir(); err != nil {
 		return err
 	}
-	handler := handlers.New(cfg, deb, yum, core.FlufikServiceWebHome(cfg.RootRepoPath), logger, debugging)
+	handler := handlers.New(cfg, deb, yum, core.FlufikServiceWebHome(cfg.RootRepoPath))
 
 	//Router start
 	handler.SetupGoGuardian()
 	router := mux.NewRouter()
 	router.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir(core.FlufikServiceWebHome(cfg.RootRepoPath))))).Methods("GET")
-	router.HandleFunc("/upload", handler.Middleware(handler.GetHandler(handler.Upload))).Methods("POST")
+	router.HandleFunc("/upload/apt", handler.Middleware(handler.GetHandler(handler.UploadApt))).Methods("POST")
+	router.HandleFunc("/upload/yum", handler.Middleware(handler.GetHandler(handler.UploadYum))).Methods("POST")
 	router.HandleFunc("/user/add/{username}/{mode}", handler.Middleware(handler.GetHandler(handler.CreateUser))).Methods("POST")
 	router.HandleFunc("/user/update/{username}", handler.Middleware(handler.GetHandler(handler.UpdateUser))).Methods("POST")
 	router.HandleFunc("/user/delete/{username}", handler.Middleware(handler.GetHandler(handler.DeleteUser))).Methods("POST")
@@ -88,7 +84,7 @@ func startService(logger *logging.Logger, debugging string) error {
 	if err = http.ListenAndServe(":"+cfg.ListenPort, chain); err != nil {
 		return err
 	}
-	logger.Info("service started")
+	logger.InfoLog("service started")
 	return nil
 }
 

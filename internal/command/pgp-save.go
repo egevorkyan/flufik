@@ -3,9 +3,8 @@ package command
 import (
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto/pgp"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 type PgpFlufikDumpCommand struct {
@@ -28,15 +27,9 @@ func NewPgpFlufikSaveCommand() *PgpFlufikDumpCommand {
 }
 
 func (c *PgpFlufikDumpCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("exporting pgp key")
-	}
-	p := pgp.NewImportPGP(logger, debuging)
+	p := pgp.NewImportPGP()
 	if err := p.SavePgpKeyToFile(c.pgpKeyName, c.location); err != nil {
-		logger.Errorf("error occured during export pgp key: %v", err)
-	} else {
-		logger.Info("successfully saved")
+		logger.RaiseErr("error occurred during export pgp key", err)
 	}
+	logger.InfoLog("successfully saved")
 }

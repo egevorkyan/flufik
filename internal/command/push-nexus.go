@@ -2,7 +2,7 @@ package command
 
 import (
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/egevorkyan/flufik/pkg/plugins/nexus"
 	"github.com/spf13/cobra"
 	"os"
@@ -38,17 +38,13 @@ func NewFlufikPushNexusCommand() *PushNexusFlufikCommand {
 }
 
 func (c *PushNexusFlufikCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("push rpm or debian package to nexus repository")
-	}
 	if c.repoUser == "" || c.repoPwd == "" || c.repoUrl == "" || c.packageName == "" || c.component == "" || c.repository == "" {
-		logger.Info("Warning: required arguments are missing, pushing to nexus interrupted")
+		logger.RaiseErr("Warning: required arguments are missing, pushing to nexus interrupted")
 	} else {
-		fnx := nexus.NewNexusUpload(c.repoUser, c.repoPwd, c.repoUrl, c.packageName, c.packagePath, c.component, c.repository, logger, debuging)
+		fnx := nexus.NewNexusUpload(c.repoUser, c.repoPwd, c.repoUrl, c.packageName, c.packagePath, c.component, c.repository)
 		if err := fnx.FlufikNexusUpload(); err != nil {
-			logger.Errorf("failed during push to nexus repository: %v ", err)
+			logger.RaiseErr("failed during push to nexus repository", err)
 		}
+		logger.InfoLog("successfully pushed to nexus repository")
 	}
 }

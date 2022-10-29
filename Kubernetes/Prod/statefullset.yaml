@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/instance: flufik
     app.kubernetes.io/name: flufik
   name: flufik
+  namespace: flufik
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -17,7 +18,6 @@ spec:
   serviceName: flufik-svc
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app.kubernetes.io/instance: flufik
         app.kubernetes.io/name: flufik
@@ -28,22 +28,30 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       containers:
-        - image: eduard1001171985/flufik:v1
+        - image: eduard1001171985/flufik:1.5.2
           imagePullPolicy: IfNotPresent
           name: flufik
           env:
             - name: FLUFIK_DEBUG
               value: "0"
             - name: FLUFIK_PUBLIC_URL
-              value: "flufik.apps.openshiftdev.com"
+              value: "repodev.dev.arencloud.com"
             - name: FLUFIK_SUPPORT_ARCH
-              value: "all i386 amd64 arm64"
+              value: "all amd64 arm64"
             - name: FLUFIK_SECTIONS
               value: "main"
             - name: FLUFIK_DISTRO_NAMES
-              value: "stable"
+              value: "focal buster bullseye jammy kinetic"
             - name: FLUFIK_RPM_REPO_NAME
-              value: "rpmrepo"
+              value: "flufik"
+            - name: FLUFIK_RPM_REPO_SUPPORTED_OSNAME
+              value: "rhel centos fedora"
+            - name: FLUFIK_RPM_REPO_RHEL_SUPPORTED_VERSION
+              value: "7 8 9 10"
+            - name: FLUFIK_RPM_REPO_FEDORA_SUPPORTED_VERSION
+              value: "33 34 35 36"
+            - name: FLUFIK_RPM_REPO_SUPPORTED_ARCH
+              value: "noarch aarch64 x86_64 s390x"
           ports:
             - containerPort: 8080
               name: registry
@@ -67,8 +75,8 @@ spec:
     - apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        creationTimestamp: null
         name: flufik-data
+        namespace: flufik
       spec:
         accessModes:
           - ReadWriteOnce

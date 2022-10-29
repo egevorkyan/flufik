@@ -1,10 +1,10 @@
-FROM golang:1.18 AS builder
+FROM golang:1.19 AS builder
 
 RUN mkdir /app
 ADD . /app
 WORKDIR /app
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=1.1-2'" -o flufik cmd/main/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=1.5-2'" -o flufik cmd/main/main.go
 
 
 FROM registry.access.redhat.com/ubi9/ubi:latest AS production

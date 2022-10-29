@@ -2,6 +2,7 @@ package flufikinfo
 
 import (
 	"fmt"
+	"github.com/egevorkyan/flufik/core"
 	"os"
 	"time"
 )
@@ -24,7 +25,11 @@ type FlufikPackageDir struct {
 }
 
 func (flufikPkgFile *FlufikPackageFile) FileData() ([]byte, error) {
-	if data, err := os.ReadFile(flufikPkgFile.Source); err == nil {
+	absPath, err := core.FlufikMakePathAbs(flufikPkgFile.Source)
+	if err != nil {
+		return nil, err
+	}
+	if data, err := os.ReadFile(absPath); err == nil {
 		return data, nil
 	} else if flufikPkgFile.Body != "" {
 		return []byte(flufikPkgFile.Body), nil

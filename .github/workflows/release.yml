@@ -13,7 +13,7 @@ jobs:
           echo "Done!"
       - uses: "marvinpinto/action-automatic-releases@latest"
         env:
-          APP_VERSION: 1.1
+          APP_VERSION: 1.5
           APP_UPDATE: 2
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -42,7 +42,7 @@ jobs:
         run: echo APP_BUILD=$(echo ${GITHUB_SHA} | cut -c1-7 ) >> ${GITHUB_ENV}
       - uses: wangyoucao577/go-release-action@v1.22
         env:
-          APP_VERSION: 1.1
+          APP_VERSION: 1.5
           APP_UPDATE: 2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -2,12 +2,12 @@
 
 env:
   CGO_ENABLED: 0
-  GOARCH: arm64
-  VERSION: 0.4.0
-  RELEASE: 1
+  VERSION: 1.5
+  RELEASE: 2
 
   REPO_NAME: eduard1001171985
   IMG_NAME: flufik
+  IMG_DEV_NAME: flufikdev
   FLUFIK_PACKAGE: flufik
   QUAY_REPO_NAME: quay.io/rhlcloud/flufik
 
@@ -27,18 +27,78 @@ functions:
       - rm -rf temp
       - rm -rf .env
 
-  - name: build-linux
+  - name: dirs
+    description: make dirs
+    run:
+      - mkdir -p packs
+
+  - name: build-linux-amd64
     description: build stats tool for Linux
     env:
       GOOS: linux
+      GOARCH: amd64
     run:
-      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o Docker/flufik cmd/main/main.go
-  - name: build-mac
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o bin/linux/amd64/flufik cmd/main/main.go
+
+  - name: build-linux-arm64
+    description: build stats tool for Linux
+    env:
+      GOOS: linux
+      GOARCH: arm64
+    run:
+      - mkdir -p linux/
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o bin/linux/arm64/flufik cmd/main/main.go
+
+  - name: build-darwin-amd64
     description: build flufik tool for MacOS
     env:
       GOOS: darwin
+      GOARCH: amd64
     run:
-      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o flufik-bins/darwin/flufik cmd/main/main.go
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o bin/darwin/amd64/flufik cmd/main/main.go
+
+  - name: build-darwin-arm64
+    description: build flufik tool for MacOS
+    env:
+      GOOS: darwin
+      GOARCH: arm64
+    run:
+      - go build -ldflags="-X 'github.com/egevorkyan/flufik/core.Version=${VERSION}-${RELEASE}'" -o bin/darwin/arm64/flufik cmd/main/main.go
+
+  - name: build-packs
+    description: building final packages
+    run:
+      - flufik build -c flufik-pack-config/config-amd64-rhel8-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d rhel --os-version 8 -a amd64 -b packs/flufik-${VERSION}-${RELEASE}.el8.x86_64.rpm
+      - flufik build -c flufik-pack-config/config-arm64-rhel8-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d rhel --os-version 8 -a arm64 -b packs/flufik-${VERSION}-${RELEASE}.el8.aarch64.rpm
+      - flufik build -c flufik-pack-config/config-amd64-rhel9-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d rhel --os-version 9 -a amd64 -b packs/flufik-${VERSION}-${RELEASE}.el9.x86_64.rpm
+      - flufik build -c flufik-pack-config/config-arm64-rhel9-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d rhel --os-version 9 -a arm64 -b packs/flufik-${VERSION}-${RELEASE}.el9.aarch64.rpm
+      - flufik build -c flufik-pack-config/config-amd64-fedora-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d fedora --os-version 35 -a amd64 -b packs/flufik-${VERSION}-${RELEASE}.fedora.x86_64.rpm
+      - flufik build -c flufik-pack-config/config-arm64-fedora-rpm.yaml -p rpm -d packs/
+      - flufik push generic -u admin -p ${FPWD} --yum -f repo.apps.arencloud.com -d fedora --os-version 35 -a arm64 -b packs/flufik-${VERSION}-${RELEASE}.fedora.aarch64.rpm
+      - flufik build -c flufik-pack-config/config-amd64-deb.yaml -p deb -d packs/
+      - flufik push generic -u admin -p ${FPWD} --apt -f repo.apps.arencloud.com -d focal -a amd64 -s main -b packs/flufik_${VERSION}-${RELEASE}.ubuntu_amd64.deb
+      - flufik push generic -u admin -p ${FPWD} --apt -f repo.apps.arencloud.com -d jammy -a amd64 -s main -b packs/flufik_${VERSION}-${RELEASE}.ubuntu_amd64.deb
+      - flufik build -c flufik-pack-config/config-arm64-deb.yaml -p deb -d packs/
+      - flufik push generic -u admin -p ${FPWD} --apt -f repo.apps.arencloud.com -d focal -a arm64 -s main -b packs/flufik_${VERSION}-${RELEASE}.ubuntu_arm64.deb
+      - flufik push generic -u admin -p ${FPWD} --apt -f repo.apps.arencloud.com -d jammy -a arm64 -s main -b packs/flufik_${VERSION}-${RELEASE}.ubuntu_arm64.deb
+      - rm -rf bin
+      - rm -rf packs
+
+  - name: build-final
+    description: package build
+    run:
+      - $(dirs)
+      - $(build-linux-amd64)
+      - $(build-linux-arm64)
+      - $(build-darwin-amd64)
+      - $(build-darwin-arm64)
+      - $(build-packs)
+
 
   - name: zip
     description: archiving flufik binaries
@@ -72,10 +132,21 @@ functions:
   - name: build-image
     description: builds and push docker image
     run:
-      #- art run $(build-linux)
-      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} -t ${REPO_NAME}/${IMG_NAME}:latest .
-      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${QUAY_REPO_NAME}:${ARTISAN_REF} -t ${QUAY_REPO_NAME}:latest .
+      #- art run $(build-linux) ${ARTISAN_REF}
+      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${REPO_NAME}/${IMG_NAME}:${VERSION}.${RELEASE} -t ${REPO_NAME}/${IMG_NAME}:latest .
+      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${QUAY_REPO_NAME}:${VERSION}.${RELEASE} -t ${QUAY_REPO_NAME}:latest .
       #- docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
         #- docker push ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF}
         #- docker push ${REPO_NAME}/${IMG_NAME}:latest
+      #- rm Docker/flufik
+
+  - name: build-dev
+    description: builds and push dev docker image
+    run:
+      #- art run $(build-linux)
+      - docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${REPO_NAME}/${IMG_DEV_NAME}:${ARTISAN_REF} -t ${REPO_NAME}/${IMG_DEV_NAME}:latest .
+      #- docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le,linux/s390x --push -t ${QUAY_REPO_NAME}:${ARTISAN_REF} -t ${QUAY_REPO_NAME}:latest .
+        #- docker tag ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF} ${REPO_NAME}/${IMG_NAME}:latest
+      #- docker push ${REPO_NAME}/${IMG_NAME}:${ARTISAN_REF}
+      #- docker push ${REPO_NAME}/${IMG_NAME}:latest
       #- rm Docker/flufik

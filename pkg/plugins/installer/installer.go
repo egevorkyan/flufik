@@ -21,48 +21,55 @@ type data struct {
 const (
 	t = `[{{.Reponame}}]
 name={{.Reponame}}
-baseurl={{.URL}}
+baseurl={{.URL}}/$ID/\$releasever/\$basearch
 enabled=1
 gpgcheck=0
 priority=1`
 	shell = `#!/bin/bash
-DEBIAN=/etc/debian_version
-REDHAT=/etc/redhat-release
+RHEL_REPO=/etc/yum.repo.d/flufik.repo
+DEB_REPO=/etc/apt/sources.list.d/flufik.list
+source /etc/os-release
 PKG=$1
 install() {
-  if test -f "$DEBIAN"; then
-    echo "Removing any previous installed ..."
-    tidydeb $PKG
-    echo "Adding flufik public key ..."
-    sudo curl -fsSL {{.KeyUrl}} -o /etc/apt/trusted.gpg.d/flufik.asc
-    echo "Adding flufik repo to APT ..."
-    echo "deb {{.DebRepoUrl}} stable main" | sudo tee /etc/apt/sources.list.d/flufik.list
-    echo "Updating APT ..."
-    DEBIAN_FRONTEND=noninteractive sudo apt update
-    echo "Installing Package ..."
-    DEBIAN_FRONTEND=noninteractive sudo apt install -y $PKG
-  fi
-  if test -f "$REDHAT"; then
-    tidyrpm $PKG
-    echo "Adding flufik repo to YUM ..."
-    sudo sh -c "echo '{{.Repo}}' > /etc/yum.repo.d/flufik.repo"
-    echo "Updating YUM ..."
-    sudo yum update -y
-    echo "Installing Package ..."
-    sudo yum install $PKG -y
-  fi
-}
-tidydeb() {
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $1|grep "install ok installed")
-  if [ ! "" = "$PKG_OK" ]; then
-    sudo apt-get -y remove $1
-  fi
-}
-tidyrpm() {
-  PKG_OK=$(rpm -q $1)
-  if [ !  "$PKG_OK" == "package $1 is not installed" ]; then
-    sudo yum remove $1 -y
-  fi
+  case "$ID" in
+    rhel | centos | fedora)
+      if test -f "$RHEL_REPO"; then
+        echo "Cleaning cached repos"
+        sudo dnf clean all -y
+        echo "Updating repos"
+        sudo dnf update -y
+        echo "Updating application"
+        sudo dnf upgrade "$PKG" -y
+      else
+        echo "Adding flufik repo to YUM ..."
+        echo "{{.Repo}}" | sudo tee /etc/yum.repos.d/flufik.repo
+        echo "Updating YUM ..."
+        sudo dnf update -y
+        echo "Installing Package ..."
+        sudo dnf install "$PKG" -y
+      fi
+      ;;
+    ubuntu | debian)
+      if test -f "$DEB_REPO"; then
+        echo "Updating APT ..."
+        DEBIAN_FRONTEND=noninteractive sudo apt update
+        echo "Installing Package ..."
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y $PKG
+      else
+        echo "Adding flufik public key ..."
+        sudo curl -fsSL {{.KeyUrl}} -o /etc/apt/trusted.gpg.d/flufik.asc
+        echo "Adding flufik repo to APT ..."
+        echo "deb {{.DebRepoUrl}} $VERSION_CODENAME main" | sudo tee /etc/apt/sources.list.d/flufik.list
+        echo "Updating APT ..."
+        DEBIAN_FRONTEND=noninteractive sudo apt update
+        echo "Installing Package ..."
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y $PKG
+      fi
+      ;;
+    *)
+      echo -n "Not implemented yet"
+      ;;
+  esac
 }
 install
 `

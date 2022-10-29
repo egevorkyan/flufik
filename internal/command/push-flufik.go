@@ -2,8 +2,9 @@ package command
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/spf13/cobra"
 	"io"
 	"mime/multipart"
@@ -13,35 +14,39 @@ import (
 )
 
 type PushRepoFlufikCommand struct {
-	command  *cobra.Command
-	pkgType  string // -t
-	arch     string // -a
-	distro   string // -d
-	section  string // -s
-	repoUrl  string // -f
-	username string // -u
-	password string // -p
-	pkg      string // -b
+	command   *cobra.Command
+	arch      string // -a
+	distro    string // -d
+	section   string // -s
+	repoUrl   string // -f
+	username  string // -u
+	password  string // -p
+	pkg       string // -b
+	osversion string // -o
+	isYum     bool
+	isApt     bool
 }
 
 func NewFlufikPushRepoFlufikCommand() *PushRepoFlufikCommand {
 	c := &PushRepoFlufikCommand{
 		command: &cobra.Command{
-			Use:   "flufik",
+			Use:   "generic",
 			Short: "push package to flufik repository",
 		},
 	}
 	c.command.Flags().StringVarP(&c.repoUrl, "url", "f", "", "flufik.com")
 	c.command.Flags().StringVarP(&c.username, "username", "u", "", "authentication username")
 	c.command.Flags().StringVarP(&c.password, "password", "p", "", "authentication password")
-	c.command.Flags().StringVarP(&c.pkgType, "package-type", "t", "rpm", "deb or rpm packages")
-	c.command.Flags().StringVarP(&c.arch, "arch", "a", "amd64", "Required: for debian repository only. CPU architecture")
+	c.command.Flags().StringVarP(&c.arch, "arch", "a", "amd64", "cpu architecture")
 	c.command.Flags().StringVarP(&c.section, "section", "s", "main", "Required: for debian repository only")
-	c.command.Flags().StringVarP(&c.distro, "distro", "d", "", "Required: for debian repository only")
+	c.command.Flags().StringVarP(&c.distro, "distro", "d", "", "os distribution")
 	c.command.Flags().StringVarP(&c.pkg, "pkg-file", "b", "", "package path")
+	c.command.Flags().BoolVarP(&c.isYum, "yum", "", false, "indicates pushing yum based package")
+	c.command.Flags().BoolVarP(&c.isApt, "apt", "", false, "indicates pushing apt based package")
+	c.command.Flags().StringVarP(&c.osversion, "os-version", "", "", "os version for rhel based os")
 	c.command.Run = c.Run
 	_ = c.command.MarkFlagRequired("url")
-	_ = c.command.MarkFlagRequired("package-type")
+	_ = c.command.MarkFlagRequired("distro")
 	_ = c.command.MarkFlagRequired("pkg-file")
 	_ = c.command.MarkFlagRequired("username")
 	_ = c.command.MarkFlagRequired("password")
@@ -49,67 +54,80 @@ func NewFlufikPushRepoFlufikCommand() *PushRepoFlufikCommand {
 }
 
 func (c *PushRepoFlufikCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("publishing package")
-	}
+	var arch string
 	extraParams := make(map[string]string)
-	switch c.pkgType {
-	case "deb":
-		if c.distro == "" && c.pkgType == "" && c.arch == "" {
-			logger.Error("missing parameter values")
+	if c.isApt {
+		if c.distro == "" && c.arch == "" {
+			logger.RaiseErr("missing parameter values")
 		}
-		urlBuilder := fmt.Sprintf("https://%s/upload?type=%s&arch=%s&distro=%s&section=%s", c.repoUrl, c.pkgType, c.arch, c.distro, c.section)
+		if c.arch == "x86_64" {
+			arch = "amd64"
+		} else if c.arch == "aarch64" {
+			arch = "arm64"
+		} else {
+			arch = c.arch
+		}
+		urlBuilder := fmt.Sprintf("https://%s/upload/apt?&arch=%s&distro=%s&section=%s", c.repoUrl, arch, c.distro, c.section)
 		request, err := newfileUploadRequest(urlBuilder, extraParams, "file", c.pkg, c.username, c.password)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.RaiseErr("failed request", err)
 		}
 		client := &http.Client{}
 		resp, err := client.Do(request)
 		if err != nil {
-			logger.Errorf("failed during upload request: %v", err)
+			logger.RaiseErr("failed during upload request", err)
 		} else {
 			body := &bytes.Buffer{}
 			_, err = body.ReadFrom(resp.Body)
 			if err != nil {
-				logger.Errorf("failed to read response body: %v", err)
+				logger.RaiseErr("failed to read response body", err)
 			}
 			err = resp.Body.Close()
 			if err != nil {
-				logger.Errorf("can not close body: %v", err)
+				logger.RaiseErr("can not close body", err)
 			}
 			if resp.StatusCode != http.StatusOK {
-				logger.Fatalf("failed to upload file: %s", c.pkg)
+				logger.RaiseErr("failed to upload file", errors.New(c.pkg))
 			}
-			logger.Infof("Status: %s, StatusCode: %v", resp.Status, resp.StatusCode)
+			logger.InfoLog("Status: %s, StatusCode: %v", resp.Status, resp.StatusCode)
 		}
-
-	case "rpm":
-		urlBuilder := fmt.Sprintf("https://%s/upload?type=%s&arch=%s&distro=%s&section=%s", c.repoUrl, c.pkgType, c.arch, c.distro, c.section)
+	} else if c.isYum {
+		if c.distro == "" && c.arch == "" && c.osversion == "" {
+			logger.RaiseErr("missing parameter values")
+		}
+		if c.arch == "amd64" {
+			arch = "x86_64"
+		} else if c.arch == "arm64" {
+			arch = "aarch64"
+		} else {
+			arch = c.arch
+		}
+		urlBuilder := fmt.Sprintf("https://%s/upload/yum?&arch=%s&distro=%s&version=%s", c.repoUrl, arch, c.distro, c.osversion)
 		request, err := newfileUploadRequest(urlBuilder, extraParams, "file", c.pkg, c.username, c.password)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.RaiseErr("failed request", err)
 		}
 		client := &http.Client{}
 		resp, err := client.Do(request)
 		if err != nil {
-			logger.Errorf("failed during upload request: %v", err)
+			logger.RaiseErr("failed during upload request", err)
 		} else {
 			body := &bytes.Buffer{}
 			_, err = body.ReadFrom(resp.Body)
 			if err != nil {
-				logger.Errorf("failed to read response body: %v", err)
+				logger.RaiseErr("failed to read response body", err)
 			}
 			err = resp.Body.Close()
 			if err != nil {
-				logger.Errorf("can not close body: %v", err)
+				logger.RaiseErr("can not close body", err)
 			}
 			if resp.StatusCode != http.StatusOK {
-				logger.Fatalf("failed to upload file: %s", c.pkg)
+				logger.RaiseErr("failed to upload file", errors.New(c.pkg))
 			}
-			logger.Infof("Status: %s, StatusCode: %v", resp.Status, resp.StatusCode)
+			logger.InfoLog("Status: %s, StatusCode: %v", resp.Status, resp.StatusCode)
 		}
+	} else {
+		logger.RaiseWarn("Required flags are missing")
 	}
 }
 

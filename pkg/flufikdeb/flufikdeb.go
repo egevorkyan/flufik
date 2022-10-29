@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/blakesmith/ar"
 	"github.com/egevorkyan/flufik/crypto/pgp"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"io"
 	"strings"
 	"time"
@@ -37,8 +36,6 @@ type FlufikDeb struct {
 	postUn string
 
 	configFiles *bytes.Buffer
-	logger      *logging.Logger
-	debugging   string
 }
 
 type FlufikDebSignature struct {
@@ -311,7 +308,7 @@ func (d *FlufikDeb) Write(w io.Writer) error {
 
 	data := io.MultiReader(bytes.NewReader(debianBinary), bytes.NewReader(flufikMeta.Bytes()),
 		bytes.NewReader(flufikData.Bytes()))
-	signer := pgp.NewSigner(d.logger, d.debugging)
+	signer := pgp.NewSigner()
 	sig, err := signer.FlufikDebSigner(data, pgpKeyName)
 	if err != nil {
 		return fmt.Errorf("signing failure: %w", err)
@@ -344,11 +341,9 @@ func (d *FlufikDeb) AddSignatureType(t string) { d.Signature.Type = t }
 
 //func (d *FlufikDeb) AddSignaturePassPhrase(p string) { d.Signature.PassPhrase = p }
 
-func NewDeb(flufikMeta FlufikDebMetaData, logger *logging.Logger, debugging string) (*FlufikDeb, error) {
+func NewDeb(flufikMeta FlufikDebMetaData) (*FlufikDeb, error) {
 	return &FlufikDeb{
 		FlufikDebMetaData: flufikMeta,
 		configFiles:       bytes.NewBufferString(""),
-		logger:            logger,
-		debugging:         debugging,
 	}, nil
 }

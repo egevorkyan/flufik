@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
 	"github.com/egevorkyan/flufik/pkg/flufikdeb"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"io"
 )
 
@@ -12,8 +11,6 @@ type FlufikDEBBuilder struct {
 	FlufikPackageBuilder
 	packageInfo        *flufikinfo.FlufikPackage
 	configurationFiles []string
-	logger             *logging.Logger
-	debugging          string
 }
 
 func (d *FlufikDEBBuilder) metaData(flufikMeta flufikinfo.FlufikPackageMeta) flufikdeb.FlufikDebMetaData {
@@ -127,7 +124,7 @@ func (d *FlufikDEBBuilder) Build(writer io.Writer) error {
 		fluffDebPkg *flufikdeb.FlufikDeb
 		err         error
 	)
-	if fluffDebPkg, err = flufikdeb.NewDeb(d.metaData(d.packageInfo.Meta), d.logger, d.debugging); err != nil {
+	if fluffDebPkg, err = flufikdeb.NewDeb(d.metaData(d.packageInfo.Meta)); err != nil {
 		return err
 	}
 
@@ -162,10 +159,8 @@ func (d *FlufikDEBBuilder) Build(writer io.Writer) error {
 	return fluffDebPkg.Write(writer)
 }
 
-func NewFlufikDebBuilder(flkPkgInfo *flufikinfo.FlufikPackage, logger *logging.Logger, debugging string) FlufikPackageBuilder {
+func NewFlufikDebBuilder(flkPkgInfo *flufikinfo.FlufikPackage) FlufikPackageBuilder {
 	return &FlufikDEBBuilder{
 		packageInfo: flkPkgInfo,
-		logger:      logger,
-		debugging:   debugging,
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/pkg/config"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/fsnotify/fsnotify"
 	"github.com/ulikunitz/xz/lzma"
 	"io"
@@ -41,15 +40,11 @@ const (
 type DebRepository struct {
 	serviceConfig    *config.ServiceConfigBuilder
 	directoryWatcher *fsnotify.Watcher
-	logger           *logging.Logger
-	debugging        string
 }
 
-func NewServiceConfiguration(config *config.ServiceConfigBuilder, logger *logging.Logger, debugging string) *DebRepository {
+func NewServiceConfiguration(config *config.ServiceConfigBuilder) *DebRepository {
 	return &DebRepository{
 		serviceConfig: config,
-		logger:        logger,
-		debugging:     debugging,
 	}
 }
 
@@ -58,9 +53,6 @@ func (s *DebRepository) ArchPath(distro string, section string, arch string) str
 }
 
 func (s *DebRepository) CreateDirectories() error {
-	if s.debugging == "1" {
-		s.logger.Info("create debian repository structure")
-	}
 	for _, distro := range s.serviceConfig.DistroNames {
 		for _, arch := range s.serviceConfig.SupportArch {
 			for _, section := range s.serviceConfig.Sections {
@@ -85,9 +77,6 @@ func (s *DebRepository) CreateDirectories() error {
 }
 
 func (s *DebRepository) RebuildRepoMetadata(filePath string) error {
-	if s.debugging == "1" {
-		s.logger.Info("rebuild repository metadata")
-	}
 	distroArch := destructPath(filePath)
 	if err := s.createPackageGz(distroArch[0], distroArch[1], distroArch[2]); err != nil {
 		return err
@@ -99,9 +88,6 @@ func (s *DebRepository) RebuildRepoMetadata(filePath string) error {
 }
 
 func (s *DebRepository) createRelease(distro string) error {
-	if s.debugging == "1" {
-		s.logger.Info("create release")
-	}
 	workingDirectory := filepath.Join(core.FlufikServiceWebHome(s.serviceConfig.RootRepoPath), aptRepos, distro)
 
 	outFile, err := os.Create(filepath.Join(workingDirectory, "Release"))
@@ -207,7 +193,7 @@ func (s *DebRepository) createRelease(distro string) error {
 		return fmt.Errorf("can not write file: %v", err)
 	}
 
-	signer := pgp.NewSigner(s.logger, s.debugging)
+	signer := pgp.NewSigner()
 
 	if err = signer.SignRelease("flufik", outFile.Name()); err != nil {
 		return fmt.Errorf("error signing release file: %s", err)
@@ -217,9 +203,6 @@ func (s *DebRepository) createRelease(distro string) error {
 }
 
 func (s *DebRepository) createPackageGz(distro string, section string, arch string) error {
-	if s.debugging == "1" {
-		s.logger.Info("create package.gz")
-	}
 	packageFile, err := os.Create(filepath.Join(s.ArchPath(distro, section, arch), "Packages"))
 	if err != nil {
 		return fmt.Errorf("failed to create Packages: %s", err)

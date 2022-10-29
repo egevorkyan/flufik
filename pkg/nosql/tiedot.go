@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"github.com/HouzuoGuo/tiedot/db"
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/pkg/logging"
 )
 
 type TieDot struct {
-	tdb       *db.DB
-	logger    *logging.Logger
-	debugging string
+	tdb *db.DB
 }
 
-func NewTieDot(collectionName string, dataIndexKey string, logger *logging.Logger, debugging string) (*TieDot, error) {
+func NewTieDot(collectionName string, dataIndexKey string) (*TieDot, error) {
 	// (Create if not exist) open a database
 	myDB, err := db.OpenDB(core.FlufikNoSqlDbPath())
 	if err != nil {
@@ -32,16 +29,11 @@ func NewTieDot(collectionName string, dataIndexKey string, logger *logging.Logge
 		}
 	}
 	return &TieDot{
-		tdb:       myDB,
-		logger:    logger,
-		debugging: debugging,
+		tdb: myDB,
 	}, nil
 }
 
 func (t *TieDot) Insert(data map[string]interface{}, collectionName string) error {
-	if t.debugging == "1" {
-		t.logger.Info("insert to db")
-	}
 	col := t.tdb.Use(collectionName)
 
 	_, err := col.Insert(data)
@@ -52,9 +44,6 @@ func (t *TieDot) Insert(data map[string]interface{}, collectionName string) erro
 }
 
 func (t *TieDot) Get(queryRequest interface{}, collectionName string) (docId int, readBack map[string]interface{}, err error) {
-	if t.debugging == "1" {
-		t.logger.Info("get data from db")
-	}
 	col := t.tdb.Use(collectionName)
 	queryResult := make(map[int]struct{})
 
@@ -73,9 +62,6 @@ func (t *TieDot) Get(queryRequest interface{}, collectionName string) (docId int
 }
 
 func (t *TieDot) Update(docId int, updateData map[string]interface{}, collectionName string) error {
-	if t.debugging == "1" {
-		t.logger.Info("update fields")
-	}
 	col := t.tdb.Use(collectionName)
 	err := col.Update(docId, updateData)
 	if err != nil {
@@ -85,9 +71,6 @@ func (t *TieDot) Update(docId int, updateData map[string]interface{}, collection
 }
 
 func (t *TieDot) Delete(docId int, collectionName string) error {
-	if t.debugging == "1" {
-		t.logger.Info("delete data")
-	}
 	col := t.tdb.Use(collectionName)
 	err := col.Delete(docId)
 	if err != nil {
@@ -97,9 +80,6 @@ func (t *TieDot) Delete(docId int, collectionName string) error {
 }
 
 func (t *TieDot) QueryGen(queryValue string, queryRule string, queryWhere string) (interface{}, error) {
-	if t.debugging == "1" {
-		t.logger.Info("generate query result")
-	}
 	var query interface{}
 	str := fmt.Sprintf("[{\"%s\": \"%s\", \"in\": [\"%s\"]}]", queryRule, queryValue, queryWhere)
 	err := json.Unmarshal([]byte(str), &query)

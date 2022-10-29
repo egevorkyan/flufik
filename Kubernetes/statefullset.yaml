@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations: {}
+  labels:
+    app.kubernetes.io/instance: flufik
+    app.kubernetes.io/name: flufik
+  name: flufik
+  namespace: flufik-dev
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: flufik
+      app.kubernetes.io/name: flufik
+  serviceName: flufik-svc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: flufik
+        app.kubernetes.io/name: flufik
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - image: eduard1001171985/flufikdev:20221029192610180-8acadfccdf
+          imagePullPolicy: IfNotPresent
+          name: flufik
+          env:
+            - name: FLUFIK_DEBUG
+              value: "0"
+            - name: FLUFIK_PUBLIC_URL
+              value: "repodev.dev.arencloud.com"
+            - name: FLUFIK_SUPPORT_ARCH
+              value: "all amd64 arm64"
+            - name: FLUFIK_SECTIONS
+              value: "main"
+            - name: FLUFIK_DISTRO_NAMES
+              value: "focal buster bullseye jammy kinetic"
+            - name: FLUFIK_RPM_REPO_NAME
+              value: "flufik"
+            - name: FLUFIK_RPM_REPO_SUPPORTED_OSNAME
+              value: "rhel centos fedora"
+            - name: FLUFIK_RPM_REPO_RHEL_SUPPORTED_VERSION
+              value: "7 8 9 10"
+            - name: FLUFIK_RPM_REPO_FEDORA_SUPPORTED_VERSION
+              value: "33 34 35 36"
+            - name: FLUFIK_RPM_REPO_SUPPORTED_ARCH
+              value: "noarch aarch64 x86_64 s390x"
+          ports:
+            - containerPort: 8080
+              name: registry
+              protocol: TCP
+          resources: {}
+          securityContext: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/flufik
+              name: flufik-data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: flufik-data
+        namespace: flufik-dev
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+        volumeMode: Filesystem
+
+

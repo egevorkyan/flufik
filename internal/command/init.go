@@ -1,11 +1,11 @@
 package command
 
 import (
+	"errors"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto/pgp"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/egevorkyan/flufik/users"
-	"log"
 	"os"
 )
 
@@ -14,65 +14,64 @@ func init() {
 }
 
 func flufikHomeInit() {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("initialize flufik")
-	}
 	_, err := os.Stat(core.FlufikHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikHome(), os.ModePerm); err != nil {
-			logger.Fatalf("can not create initial directories: %v", err)
+			logger.RaiseErr("can not create initial directories", err)
 		}
 	}
 
 	_, err = os.Stat(core.FlufikLoggingHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikLoggingHome(), os.ModePerm); err != nil {
-			log.Fatal(err)
+			logger.RaiseErr("failed to create initial directories", err)
 		}
 	}
 
 	_, err = os.Stat(core.FlufikKeysHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikKeysHome(), os.ModePerm); err != nil {
-			logger.Errorf("can not create keys folder: %v", err)
+			logger.RaiseErr("can not create keys folder", err)
 		}
 	}
 
 	_, err = os.Stat(core.FlufikConfigurationHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikConfigurationHome(), os.ModePerm); err != nil {
-			logger.Errorf("can not create configuration folder: %v", err)
+			logger.RaiseErr("can not create configuration folder", err)
 		}
 	}
 
 	_, err = os.Stat(core.FlufikOutputHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikOutputHome(), os.ModePerm); err != nil {
-			logger.Errorf("can not create output folder: %v", err)
+			logger.RaiseErr("can not create output folder", err)
 		}
 	}
 
 	_, err = os.Stat(core.FlufikServiceConfigurationHome())
 	if os.IsNotExist(err) {
 		if err = os.Mkdir(core.FlufikServiceConfigurationHome(), os.ModePerm); err != nil {
-			logger.Errorf("can not create output folder: %v", err)
+			logger.RaiseErr("can not create output folder", err)
 		}
 	}
 
-	if err = initializePgpKey(logger, debuging); err != nil {
-		logger.Errorf("initialize default pgp key: %v", err)
-	}
+	_, err = os.Stat(core.FlufikNoSqlDbPath())
+	if errors.Is(err, os.ErrNotExist) {
 
-	if err = initializeAdminUser(logger, debuging); err != nil {
-		logger.Errorf("initialize admin user: %v", err)
+		if err = initializePgpKey(); err != nil {
+			logger.RaiseErr("initialize default pgp key", err)
+		}
+
+		if err = initializeAdminUser(); err != nil {
+			logger.RaiseErr("initialize admin user", err)
+		}
 	}
 
 }
 
-func initializeAdminUser(logger *logging.Logger, debugging string) error {
-	u := users.NewUser(logger, debugging)
+func initializeAdminUser() error {
+	u := users.NewUser()
 	err := u.CreateUser("admin", "admin")
 	if err != nil {
 		return err
@@ -84,8 +83,8 @@ func initializeAdminUser(logger *logging.Logger, debugging string) error {
 	return nil
 }
 
-func initializePgpKey(logger *logging.Logger, debugging string) error {
-	p := pgp.NewPGP("flufik", "", "", "rsa", 4096, logger, debugging)
+func initializePgpKey() error {
+	p := pgp.NewPGP("flufik", "", "", "rsa", 4096)
 	err := p.GeneratePgpKey()
 	if err != nil {
 		return err

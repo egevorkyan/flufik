@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/crypto/pgp"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/google/rpmpack"
 	"io"
 )
@@ -13,8 +12,6 @@ import (
 type FlufikRPMBuilder struct {
 	FlufikPackageBuilder
 	packageInfo *flufikinfo.FlufikPackage
-	logger      *logging.Logger
-	debugger    string
 }
 
 func (r *FlufikRPMBuilder) rpmMetadata(flufikMeta flufikinfo.FlufikPackageMeta) rpmpack.RPMMetaData {
@@ -162,17 +159,15 @@ func (r *FlufikRPMBuilder) Build(writer io.Writer) error {
 		pgpKeyName = r.packageInfo.Signature.PgpName
 	}
 
-	signer := pgp.NewSigner(r.logger, r.debugger)
+	signer := pgp.NewSigner()
 
 	flufikRpmPkg.SetPGPSigner(signer.FlufikRpmSigner(pgpKeyName))
 
 	return flufikRpmPkg.Write(writer)
 }
 
-func NewFlufikRpmBuilder(flufikPkgInfo *flufikinfo.FlufikPackage, logger *logging.Logger, debugger string) FlufikPackageBuilder {
+func NewFlufikRpmBuilder(flufikPkgInfo *flufikinfo.FlufikPackage) FlufikPackageBuilder {
 	return &FlufikRPMBuilder{
 		packageInfo: flufikPkgInfo,
-		logger:      logger,
-		debugger:    debugger,
 	}
 }

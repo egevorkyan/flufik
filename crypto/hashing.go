@@ -6,14 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"io/ioutil"
 )
 
 type hash struct {
-	logger    *logging.Logger
-	debugging string
-	file      string
+	file string
 }
 
 type FlufikChecksum struct {
@@ -22,18 +19,13 @@ type FlufikChecksum struct {
 	Md5    string
 }
 
-func NewHash(fileName string, logger *logging.Logger, debugging string) *hash {
+func NewHash(fileName string) *hash {
 	return &hash{
-		logger:    logger,
-		debugging: debugging,
-		file:      fileName,
+		file: fileName,
 	}
 }
 
 func (h *hash) CheckSum() (hash FlufikChecksum, err error) {
-	if h.debugging == "1" {
-		h.logger.Info("calculate checksum for particular file")
-	}
 	sha256Hash := sha256.New()
 	sha1Hash := sha1.New()
 	md5Hash := md5.New()

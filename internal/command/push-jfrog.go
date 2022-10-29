@@ -2,7 +2,7 @@ package command
 
 import (
 	"github.com/egevorkyan/flufik/core"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/egevorkyan/flufik/pkg/plugins/jfrog"
 	"github.com/spf13/cobra"
 	"os"
@@ -40,22 +40,18 @@ func NewFlufikPushJfrogCommand() *PushJfrogFlufikCommand {
 }
 
 func (c *PushJfrogFlufikCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("push rpm or debian package to jfrog repository")
-	}
 	arch := core.CheckArch(c.packageName)
 	if len(arch) > 0 {
 		if c.repoUser == "" || c.repoPwd == "" || c.repoUrl == "" || c.packageName == "" || c.distribution == "" || c.component == "" || c.repository == "" {
-			logger.Info("Warning: required arguments are missing, pushing to jfrog interrupted")
+			logger.RaiseErr("required arguments are missing, pushing to jfrog interrupted")
 		} else {
-			push := jfrog.NewUpload(c.repoUser, c.repoPwd, c.repoUrl, c.packageName, c.packagePath, c.distribution, c.component, arch, c.repository, logger, debuging)
+			push := jfrog.NewUpload(c.repoUser, c.repoPwd, c.repoUrl, c.packageName, c.packagePath, c.distribution, c.component, arch, c.repository)
 			if err := push.FlufikJFrogUpload(); err != nil {
-				logger.Errorf("failure occured during package upload: %v", err)
+				logger.RaiseErr("failure occurred during package upload", err)
 			}
+			logger.InfoLog("successfully pushed to jfrog repository")
 		}
 	} else {
-		logger.Info("Warning: package name is not based on official naming convention")
+		logger.RaiseWarn("Warning: package name is not based on official naming convention")
 	}
 }

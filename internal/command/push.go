@@ -5,18 +5,7 @@ import (
 )
 
 type PushFlufikCommand struct {
-	command      *cobra.Command
-	provider     string //short - w
-	repoUser     string //short - u
-	repoPwd      string //short - p
-	repoUrl      string //short - l
-	packageName  string //short - b
-	path         string //short - m
-	distribution string //short - d
-	component    string //short - c
-	architecture string //short - a
-	nxcomponent  string //short - n
-	repository   string //short - r
+	command *cobra.Command
 }
 
 func NewFlufikPushCommand() *PushFlufikCommand {

@@ -1,10 +1,11 @@
 package core
 
 import (
-	"log"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 func Home() string {
 	u, err := user.Current()
 	if err != nil {
-		log.Fatal(err)
+		logger.RaiseErr("failed to get current user", err)
 	}
 	return u.HomeDir
 }
@@ -85,4 +86,12 @@ func FlufikRootHome() string {
 
 func FlufikServiceWebHome(rootPath string) string {
 	return filepath.Join(rootPath, FLUFIKSERVICEWEB)
+}
+
+func FlufikMakePathAbs(path string) (abs string, err error) {
+	if strings.HasPrefix(path, "~") {
+		tempPath := strings.ReplaceAll(path, "~", Home())
+		return filepath.Abs(tempPath)
+	}
+	return filepath.Abs(path)
 }

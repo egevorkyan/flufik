@@ -1,0 +1,17 @@
+meta:
+  name: flufik
+  version: 1.5
+  release: 2.el9
+  arch: aarch64
+  maintainer: Eduard Gevorkyan
+  summary: |-
+    Flufik ARM RPM Package
+  description: |-
+    Flufik package which can be deployed on RPM based Linux OS
+files:
+  generic:
+    - destination: /bin/flufik
+      source: ./bin/linux/arm64/flufik
+      owner: root
+      group: root
+      mode: 0755

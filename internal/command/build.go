@@ -5,7 +5,7 @@ import (
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/internal/flufikbuilder"
 	"github.com/egevorkyan/flufik/internal/flufikinfo"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/spf13/cobra"
 	"os"
 	"path"
@@ -33,23 +33,18 @@ func NewFlufikBuildCommand() *BuildFlufikCommand {
 }
 
 func (c *BuildFlufikCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("build packages")
-	}
 	pkgInfoLoader, err := flufikinfo.LoadPackageInfo(c.buildConfigPath, c.destDir)
 	if err != nil {
-		logger.Errorf("can't load configuration file error: %v", err)
+		logger.RaiseErr("can't load configuration file error", err)
 	}
 	switch c.buildPack {
 	case "rpm":
-		if err = buildFlufikPackage(flufikbuilder.NewFlufikRpmBuilder(pkgInfoLoader, logger, debuging), c.destDir); err != nil {
-			logger.Errorf("rpm package not build error: %v", err)
+		if err = buildFlufikPackage(flufikbuilder.NewFlufikRpmBuilder(pkgInfoLoader), c.destDir); err != nil {
+			logger.RaiseErr("rpm package not build error", err)
 		}
 	case "deb":
-		if err = buildFlufikPackage(flufikbuilder.NewFlufikDebBuilder(pkgInfoLoader, logger, debuging), c.destDir); err != nil {
-			logger.Errorf("deb package not build error: %v", err)
+		if err = buildFlufikPackage(flufikbuilder.NewFlufikDebBuilder(pkgInfoLoader), c.destDir); err != nil {
+			logger.RaiseErr("deb package not build error", err)
 		}
 	}
 }

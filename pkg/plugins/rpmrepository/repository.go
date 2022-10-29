@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/pkg/config"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/jfrog/go-rpm"
 	"io"
 	"io/ioutil"
@@ -18,36 +17,50 @@ import (
 const repoDataPath = "repodata"
 
 type RpmRepo struct {
-	cfg       *config.ServiceConfigBuilder
-	logger    *logging.Logger
-	debugging string
+	cfg *config.ServiceConfigBuilder
 }
 
 var packageinfo = map[string]PackageInfos{}
 var repodata = map[string]RepoData{}
 
-func NewRpmBuilder(config *config.ServiceConfigBuilder, logger *logging.Logger, debugging string) *RpmRepo {
-	return &RpmRepo{cfg: config, logger: logger, debugging: debugging}
+func NewRpmBuilder(config *config.ServiceConfigBuilder) *RpmRepo {
+	return &RpmRepo{cfg: config}
 }
 
 // CreateBaseDir - creates base directory
 func (r *RpmRepo) CreateBaseDir() error {
-	if r.debugging == "1" {
-		r.logger.Info("create rpm repository base directory")
-	}
 	fmt.Println(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName))
 	err := r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName))
 	if err != nil {
 		return fmt.Errorf("failed to create base directory: %v", err)
+	}
+	for _, osName := range r.cfg.RpmRepositoryOsName {
+		switch osName {
+		case "fedora":
+			for _, fedVersion := range r.cfg.RpmRepositoryFedoraVersion {
+				for _, arch := range r.cfg.RpmRepositoryArch {
+					err = r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, osName, fedVersion, arch))
+					if err != nil {
+						return fmt.Errorf("failed to create fedora repos subdirs: %v", err)
+					}
+				}
+			}
+		default:
+			for _, rhelVersion := range r.cfg.RpmRepositoryRhelVersion {
+				for _, arch := range r.cfg.RpmRepositoryArch {
+					err = r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, osName, rhelVersion, arch))
+					if err != nil {
+						return fmt.Errorf("failed to create repos subdirs: %v", err)
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
 
 // ReindexPackages - reindex packages on repository server
 func (r *RpmRepo) ReindexPackages() error {
-	if r.debugging == "1" {
-		r.logger.Info("reindexing packages")
-	}
 	// reset settings
 	packageinfo = map[string]PackageInfos{}
 	repodata = map[string]RepoData{}
@@ -108,11 +121,8 @@ func (r *RpmRepo) ReindexPackages() error {
 }
 
 // SavePackage - saves uploaded package in repository
-func (r *RpmRepo) SavePackage(data io.Reader, pkg string) error {
-	if r.debugging == "1" {
-		r.logger.Info("saving package")
-	}
-	filePath := filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, pkg)
+func (r *RpmRepo) SavePackage(data io.Reader, pkg string, distroName string, version string, arch string) error {
+	filePath := filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, distroName, version, arch, pkg)
 	out, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("can not create file %v: %v", filePath, err)
@@ -138,9 +148,6 @@ func (r *RpmRepo) readRepos() error {
 
 // getPaths - building paths and returns paths
 func (r *RpmRepo) getPaths(supportedOs string) []string {
-	if r.debugging == "1" {
-		r.logger.Info("building path structure and returning value")
-	}
 	var paths []string
 	supported := strings.Split(supportedOs, " ")
 	for _, s := range supported {
@@ -152,9 +159,6 @@ func (r *RpmRepo) getPaths(supportedOs string) []string {
 
 // createDir - creates directories
 func (r *RpmRepo) createDir(path string) error {
-	if r.debugging == "1" {
-		r.logger.Info("create directory")
-	}
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
@@ -163,10 +167,7 @@ func (r *RpmRepo) createDir(path string) error {
 	return nil
 }
 
-func (r *RpmRepo) Repository(uploaded []byte, uploadedName string) error {
-	if r.debugging == "1" {
-		r.logger.Info("rpm repository")
-	}
+func (r *RpmRepo) Repository(uploaded []byte, uploadedName string, distroName string, version string, arch string) error {
 	sum := sha256.Sum256(uploaded)
 	sumString := fmt.Sprintf("%x", sum)
 	p, err := rpm.ReadPackageFile(bytes.NewBuffer(uploaded))
@@ -174,7 +175,7 @@ func (r *RpmRepo) Repository(uploaded []byte, uploadedName string) error {
 		return fmt.Errorf("failed reading rpm file: %v", err)
 	}
 	pi := PackageInfo{p.String(), *p}
-	err = r.SavePackage(bytes.NewBuffer(uploaded), uploadedName)
+	err = r.SavePackage(bytes.NewBuffer(uploaded), uploadedName, distroName, version, arch)
 	if err != nil {
 		return err
 	}
@@ -185,24 +186,21 @@ func (r *RpmRepo) Repository(uploaded []byte, uploadedName string) error {
 	if err != nil {
 		return err
 	}
-	err = r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, repoDataPath))
+	err = r.createDir(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, distroName, version, arch, repoDataPath))
 	if err != nil {
 		return err
 	}
-	err = r.Dump(repodata[r.cfg.RpmRepositoryName])
+	err = r.Dump(repodata[r.cfg.RpmRepositoryName], distroName, version, arch)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *RpmRepo) Dump(data RepoData) error {
-	if r.debugging == "1" {
-		r.logger.Info("dumping repository xml files")
-	}
+func (r *RpmRepo) Dump(data RepoData, distroName string, version string, arch string) error {
 	for k, v := range data {
 		if strings.Contains(k, "gz") || strings.Contains(k, "repomd.xml") {
-			f, err := os.Create(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, repoDataPath, k))
+			f, err := os.Create(filepath.Join(core.FlufikServiceWebHome(r.cfg.RootRepoPath), r.cfg.RpmRepositoryName, distroName, version, arch, repoDataPath, k))
 			if err != nil {
 				return fmt.Errorf("can not create file: %v", err)
 			}

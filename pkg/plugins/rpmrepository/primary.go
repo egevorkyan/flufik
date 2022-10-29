@@ -2,6 +2,7 @@ package rpmrepository
 
 import (
 	"encoding/xml"
+	"fmt"
 	"regexp"
 	"strconv"
 )
@@ -172,7 +173,7 @@ func (r *RpmRepo) GetPrimary(packages PackageInfos) Primary {
 			Size:         pkgsize,
 			Format:       pkgformat,
 			Location: Location{
-				Href: p.Path,
+				Href: fmt.Sprintf("%s.rpm", p.Path),
 			},
 		}
 		primary.Package = append(primary.Package, pkg)

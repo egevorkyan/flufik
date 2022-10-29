@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/egevorkyan/flufik/core"
 	"github.com/egevorkyan/flufik/crypto"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/nosql"
 	"os"
 	"path/filepath"
@@ -16,21 +15,15 @@ const (
 	USERINDEXNAME  = "Username"
 )
 
-type Users struct {
-	logger    *logging.Logger
-	debugging string
-}
+type Users struct{}
 
-func NewUser(logger *logging.Logger, debugging string) *Users {
-	return &Users{logger: logger, debugging: debugging}
+func NewUser() *Users {
+	return &Users{}
 }
 
 func (u *Users) CreateUser(username string, mode string) error {
-	if u.debugging == "1" {
-		u.logger.Info("creating user")
-	}
 	data := make(map[string]interface{})
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -43,7 +36,7 @@ func (u *Users) CreateUser(username string, mode string) error {
 		return err
 	}
 	if docId == 0 {
-		pwd := crypto.NewPwdGen(15, 3, 4, 3, u.logger, u.debugging)
+		pwd := crypto.NewPwdGen(15, 3, 4, 3)
 		pass, err := pwd.PasswordGenerator()
 		if err != nil {
 			return err
@@ -60,16 +53,13 @@ func (u *Users) CreateUser(username string, mode string) error {
 }
 
 func (u *Users) UpdateUser(username string) (string, error) {
-	if u.debugging == "1" {
-		u.logger.Info("updating user")
-	}
-	pwd := crypto.NewPwdGen(15, 3, 4, 3, u.logger, u.debugging)
+	pwd := crypto.NewPwdGen(15, 3, 4, 3)
 	pass, err := pwd.PasswordGenerator()
 	if err != nil {
 		return "", err
 	}
 	data := make(map[string]interface{})
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return "", err
 	}
@@ -94,10 +84,7 @@ func (u *Users) UpdateUser(username string) (string, error) {
 }
 
 func (u *Users) Validate(username string, password string, mode string) (bool, error) {
-	if u.debugging == "1" {
-		u.logger.Info("user validation")
-	}
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return false, err
 	}
@@ -118,10 +105,7 @@ func (u *Users) Validate(username string, password string, mode string) (bool, e
 }
 
 func (u *Users) DumpUser(username string, fileName string) error {
-	if u.debugging == "1" {
-		u.logger.Info("dump user")
-	}
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -151,10 +135,7 @@ func (u *Users) DumpUser(username string, fileName string) error {
 }
 
 func (u *Users) DeleteUser(username string) error {
-	if u.debugging == "1" {
-		u.logger.Info("delete user")
-	}
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return err
 	}
@@ -174,10 +155,7 @@ func (u *Users) DeleteUser(username string) error {
 }
 
 func (u *Users) GetUserPwd(username string) (string, error) {
-	if u.debugging == "1" {
-		u.logger.Info("identifying user password")
-	}
-	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME, u.logger, u.debugging)
+	tieDb, err := nosql.NewTieDot(USERCOLLECTION, USERINDEXNAME)
 	if err != nil {
 		return "", err
 	}

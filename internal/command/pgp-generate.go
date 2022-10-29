@@ -2,9 +2,8 @@ package command
 
 import (
 	"github.com/egevorkyan/flufik/crypto/pgp"
-	"github.com/egevorkyan/flufik/pkg/logging"
+	"github.com/egevorkyan/flufik/pkg/logger"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 type PgpFlufikGenerateCommand struct {
@@ -33,13 +32,9 @@ func NewFlufikPgpGenerateCommand() *PgpFlufikGenerateCommand {
 }
 
 func (c *PgpFlufikGenerateCommand) Run(command *cobra.Command, args []string) {
-	logger := logging.GetLogger()
-	debuging := os.Getenv("FLUFIK_DEBUG")
-	if debuging == "1" {
-		logger.Info("create pgp key")
-	}
-	p := pgp.NewPGP(c.name, c.email, c.comment, c.keyType, c.bits, logger, debuging)
+	p := pgp.NewPGP(c.name, c.email, c.comment, c.keyType, c.bits)
 	if err := p.GeneratePgpKey(); err != nil {
-		logger.Fatalf("%v", err)
+		logger.RaiseErr("", err)
 	}
+	logger.InfoLog("successfully generated")
 }

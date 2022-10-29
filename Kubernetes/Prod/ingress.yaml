@@ -8,10 +8,10 @@ metadata:
     app.kubernetes.io/instance: flufik
     app.kubernetes.io/name: flufik
   name: flufik
-  namespace: flufik-dev
+  namespace: flufik
 spec:
   rules:
-    - host: repodev.dev.arencloud.com
+    - host: repo.apps.arencloud.com
       http:
         paths:
           - backend:
@@ -23,5 +23,5 @@ spec:
             pathType: ImplementationSpecific
   tls:
     - hosts:
-        - repodev.dev.arencloud.com
-      secretName: tls-flufikdev
+        - repo.apps.arencloud.com
+      secretName: tls-flufik

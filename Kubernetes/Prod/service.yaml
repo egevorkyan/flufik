@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/instance: flufik
     app.kubernetes.io/name: flufik
   name: flufik-svc
-  namespace: flufik-dev
+  namespace: flufik
 spec:
   ports:
     - name: flufik

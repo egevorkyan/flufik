@@ -8,7 +8,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/egevorkyan/flufik/crypto/encoder"
-	"github.com/egevorkyan/flufik/pkg/logging"
 	"github.com/egevorkyan/flufik/pkg/nosql"
 	"io"
 	"os"
@@ -16,22 +15,13 @@ import (
 	"unicode"
 )
 
-type signer struct {
-	logger    *logging.Logger
-	debugging string
-}
+type signer struct{}
 
-func NewSigner(logger *logging.Logger, debugging string) *signer {
-	return &signer{
-		logger:    logger,
-		debugging: debugging,
-	}
+func NewSigner() *signer {
+	return &signer{}
 }
 
 func (s *signer) FlufikDebSigner(message io.Reader, privateKey string) ([]byte, error) {
-	if s.debugging == "1" {
-		s.logger.Info("debian package pgp key signer")
-	}
 	key, err := s.FlufikReadPrivateKey(privateKey)
 	if err != nil {
 		return nil, err
@@ -50,9 +40,6 @@ func (s *signer) FlufikDebSigner(message io.Reader, privateKey string) ([]byte, 
 
 func (s *signer) FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error) {
 	return func(data []byte) ([]byte, error) {
-		if s.debugging == "1" {
-			s.logger.Info("rpm package signer")
-		}
 		key, err := s.FlufikReadPrivateKey(privateKey)
 		if err != nil {
 			return nil, err
@@ -68,10 +55,7 @@ func (s *signer) FlufikRpmSigner(privateKey string) func([]byte) ([]byte, error)
 }
 
 func (s *signer) FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error) {
-	if s.debugging == "1" {
-		s.logger.Info("reading pgp private key")
-	}
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, s.logger, s.debugging)
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +69,7 @@ func (s *signer) FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error
 	}
 	priv := fmt.Sprint(value["PrivateKey"])
 	pwd := fmt.Sprint(value["PassPhrase"])
-	e := encoder.NewEncoder(s.logger, s.debugging)
+	e := encoder.NewEncoder()
 	decodedPrivateKey, err := e.B64Decoder(priv)
 	if err != nil {
 		return nil, err
@@ -135,11 +119,8 @@ func (s *signer) FlufikReadPrivateKey(privateKey string) (*openpgp.Entity, error
 }
 
 func (s *signer) FlufikDecryptPrivateKey(keyName, passPhrase string) (*openpgp.Entity, error) {
-	if s.debugging == "1" {
-		s.logger.Info("decrypt private key")
-	}
-	e := encoder.NewEncoder(s.logger, s.debugging)
-	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME, s.logger, s.debugging)
+	e := encoder.NewEncoder()
+	tieDb, err := nosql.NewTieDot(PGPCOLLECTION, PGPINDEXNAME)
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +180,6 @@ func (s *signer) FlufikDecryptPrivateKey(keyName, passPhrase string) (*openpgp.E
 }
 
 func (s *signer) FlufikCheckPGPKeyType(pgpKey []byte) bool {
-	if s.debugging == "1" {
-		s.logger.Info("identifying if pgp key is encrypted or not")
-	}
 	for pgp := 0; pgp < len(pgpKey); pgp++ {
 		if pgpKey[pgp] > unicode.MaxASCII {
 			return false
@@ -211,9 +189,6 @@ func (s *signer) FlufikCheckPGPKeyType(pgpKey []byte) bool {
 }
 
 func (s *signer) SignRelease(privateKey string, fileName string) error {
-	if s.debugging == "1" {
-		s.logger.Info("signing release files for debian repository")
-	}
 	key, err := s.FlufikReadPrivateKey(privateKey)
 	if err != nil {
 		return err

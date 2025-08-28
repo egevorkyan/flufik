@@ -15,7 +15,7 @@ require (
 	github.com/sethvargo/go-password v0.2.0
 	github.com/shaj13/go-guardian v1.5.11
 	github.com/spf13/cobra v1.2.1
-	github.com/ulikunitz/xz v0.5.8
+	github.com/ulikunitz/xz v0.5.14
 	github.com/unrolled/render v1.5.0
 	gopkg.in/yaml.v3 v3.0.0
 	modernc.org/sqlite v1.14.5
